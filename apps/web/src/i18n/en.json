@@ -1,0 +1,66 @@
+{
+  "hero": {
+    "title": "See a Problem? Report It.",
+    "subtitle": "Report garbage, damaged roads, broken signals, water leaks and other civic problems — all from one place.",
+    "reportButton": "Report a Problem",
+    "trackButton": "Track Complaint"
+  },
+  "howItWorks": {
+    "title": "How It Works",
+    "steps": {
+      "capture": {
+        "title": "Capture",
+        "description": "Take a photo of the civic issue you want to report"
+      },
+      "identify": {
+        "title": "Identify",
+        "description": "AI automatically detects the problem category and location"
+      },
+      "submit": {
+        "title": "Submit",
+        "description": "Review the details and submit your complaint"
+      },
+      "track": {
+        "title": "Track",
+        "description": "Get real-time updates on your complaint status"
+      },
+      "resolve": {
+        "title": "Resolve",
+        "description": "Authorities address the issue and you verify resolution"
+      }
+    }
+  },
+  "categories": {
+    "title": "What Can You Report?",
+    "wasteManagement": "Waste Management",
+    "roads": "Roads & Potholes",
+    "traffic": "Traffic & Signals",
+    "water": "Water Supply",
+    "sewerage": "Sewerage & Drains",
+    "streetLighting": "Street Lighting",
+    "publicInfrastructure": "Public Infrastructure",
+    "environment": "Environment"
+  },
+  "disclaimer": {
+    "title": "Important Notice",
+    "text": "This platform does not replace official government authorities. Availability of automated submission and status tracking depends on the authority's technical systems and policies.",
+    "label": "Citizen reporting platform — Technology platform for routing civic complaints."
+  },
+  "footer": {
+    "brand": "CivicConnect India",
+    "tagline": "Technology platform for routing civic complaints",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "howItWorks": "How It Works",
+    "copyright": "CivicConnect India. All rights reserved."
+  },
+  "common": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "back": "Back",
+    "next": "Next",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "success": "Success"
+  }
+}

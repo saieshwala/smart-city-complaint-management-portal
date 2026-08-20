@@ -1,0 +1,548 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum ComplaintStatus {
+  DRAFT
+  ANALYZING
+  AWAITING_USER_CONFIRMATION
+  READY_TO_SUBMIT
+  SUBMITTED
+  RECEIVED
+  UNDER_REVIEW
+  ASSIGNED
+  IN_PROGRESS
+  NEEDS_INFORMATION
+  RESOLVED
+  CLOSED
+  REJECTED
+  DUPLICATE
+  FAILED_SUBMISSION
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum LocationSource {
+  EXIF
+  BROWSER
+  MANUAL
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  AUTHORITY_ADMIN
+  DEPARTMENT_ADMIN
+  OFFICER
+  VIEWER
+}
+
+enum AuthorityType {
+  MUNICIPAL_CORPORATION
+  MUNICIPALITY
+  NAGAR_PANCHAYAT
+  OTHER
+}
+
+enum IntegrationType {
+  API
+  EMAIL
+  WEBHOOK
+  PORTAL_LINK
+  MANUAL
+}
+
+enum IntegrationStatus {
+  PENDING
+  SUBMITTED
+  SUCCESS
+  FAILED
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum OtpType {
+  EMAIL_VERIFY
+  PHONE_VERIFY
+  LOGIN
+}
+
+// ============================================================
+// USER MODELS
+// ============================================================
+
+model User {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String    @db.VarChar(255)
+  email             String    @unique @db.VarChar(255)
+  phone             String?   @unique @db.VarChar(20)
+  passwordHash      String?   @map("password_hash") @db.VarChar(255)
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  phoneVerified     Boolean   @default(false) @map("phone_verified")
+  avatarUrl         String?   @map("avatar_url") @db.VarChar(500)
+  preferredLanguage String    @default("en") @map("preferred_language") @db.VarChar(5)
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  complaints              Complaint[]
+  notifications           Notification[]
+  complaintStatusChanges  ComplaintStatusHistory[] @relation("UserStatusChanges")
+  otpCodes                OtpCode[]
+  auditLogs               AuditLog[]              @relation("UserAuditLogs")
+
+  @@index([email])
+  @@index([phone])
+  @@map("users")
+}
+
+model AdminUser {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String    @db.VarChar(255)
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  role         AdminRole
+  authorityId  String?   @map("authority_id") @db.Uuid
+  departmentId String?   @map("department_id") @db.Uuid
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz()
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  authority              Authority?              @relation(fields: [authorityId], references: [id])
+  department             Department?             @relation(fields: [departmentId], references: [id])
+  assignedComplaints     Complaint[]             @relation("AssignedOfficer")
+  complaintStatusChanges ComplaintStatusHistory[] @relation("AdminStatusChanges")
+  auditLogs              AuditLog[]              @relation("AdminAuditLogs")
+  adminNotes             AdminNote[]
+
+  @@index([email])
+  @@index([authorityId])
+  @@index([departmentId])
+  @@map("admin_users")
+}
+
+// ============================================================
+// AUTHORITY & DEPARTMENT MODELS
+// ============================================================
+
+model Authority {
+  id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                  String        @db.VarChar(255)
+  type                  AuthorityType
+  state                 String        @db.VarChar(100)
+  district              String        @db.VarChar(100)
+  city                  String        @db.VarChar(100)
+  website               String?       @db.VarChar(500)
+  contactEmail          String?       @map("contact_email") @db.VarChar(255)
+  contactPhone          String?       @map("contact_phone") @db.VarChar(20)
+  apiAvailable          Boolean       @default(false) @map("api_available")
+  apiEndpoint           String?       @map("api_endpoint") @db.VarChar(500)
+  integrationType       IntegrationType @default(MANUAL) @map("integration_type")
+  isActive              Boolean       @default(true) @map("is_active")
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
+
+  departments          Department[]
+  complaints           Complaint[]
+  routingRules         RoutingRule[]
+  slaRules             SlaRule[]
+  integrationConfigs   IntegrationConfig[]
+  adminUsers           AdminUser[]
+
+  @@map("authorities")
+}
+
+model Department {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorityId     String    @map("authority_id") @db.Uuid
+  name            String    @db.VarChar(255)
+  slug            String    @db.VarChar(100)
+  description     String?   @db.Text
+  contactEmail    String?   @map("contact_email") @db.VarChar(255)
+  contactPhone    String?   @map("contact_phone") @db.VarChar(20)
+  escalationHours Int       @default(48) @map("escalation_hours")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  authority    Authority     @relation(fields: [authorityId], references: [id])
+  complaints   Complaint[]
+  routingRules RoutingRule[]
+  adminUsers   AdminUser[]
+
+  @@unique([authorityId, slug])
+  @@index([authorityId])
+  @@map("departments")
+}
+
+// ============================================================
+// CATEGORY MODELS
+// ============================================================
+
+model Category {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String   @db.VarChar(255)
+  slug         String   @unique @db.VarChar(100)
+  description  String?  @db.Text
+  icon         String?  @db.VarChar(100)
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  subcategories Subcategory[]
+  complaints    Complaint[]
+  routingRules  RoutingRule[]
+  slaRules      SlaRule[]
+
+  @@map("categories")
+}
+
+model Subcategory {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId   String   @map("category_id") @db.Uuid
+  name         String   @db.VarChar(255)
+  slug         String   @db.VarChar(100)
+  description  String?  @db.Text
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  category     Category    @relation(fields: [categoryId], references: [id])
+  complaints   Complaint[]
+  routingRules RoutingRule[]
+
+  @@unique([categoryId, slug])
+  @@index([categoryId])
+  @@map("subcategories")
+}
+
+// ============================================================
+// COMPLAINT MODELS
+// ============================================================
+
+model Complaint {
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  publicId               String            @unique @map("public_id") @db.VarChar(20)
+  userId                 String            @map("user_id") @db.Uuid
+  categoryId             String?           @map("category_id") @db.Uuid
+  subcategoryId          String?           @map("subcategory_id") @db.Uuid
+  authorityId            String?           @map("authority_id") @db.Uuid
+  departmentId           String?           @map("department_id") @db.Uuid
+  assignedOfficerId      String?           @map("assigned_officer_id") @db.Uuid
+  title                  String            @db.VarChar(500)
+  description            String            @db.Text
+  aiGeneratedDescription String?           @map("ai_generated_description") @db.Text
+  status                 ComplaintStatus   @default(DRAFT)
+  priority               Priority          @default(MEDIUM)
+  severity               Severity          @default(MEDIUM)
+  latitude               Decimal?          @db.Decimal(10, 8)
+  longitude              Decimal?          @db.Decimal(11, 8)
+  address                String?           @db.Text
+  ward                   String?           @db.VarChar(100)
+  city                   String?           @db.VarChar(100)
+  district               String?           @db.VarChar(100)
+  state                  String?           @db.VarChar(100)
+  country                String            @default("India") @db.VarChar(100)
+  postalCode             String?           @map("postal_code") @db.VarChar(10)
+  locationSource         LocationSource?   @map("location_source")
+  externalReference      String?           @map("external_reference") @db.VarChar(255)
+  externalStatus         String?           @map("external_status") @db.VarChar(100)
+  integrationStatus      IntegrationStatus @default(PENDING) @map("integration_status")
+  integrationError       String?           @map("integration_error") @db.Text
+  retryCount             Int               @default(0) @map("retry_count")
+  lastSubmissionAttempt  DateTime?         @map("last_submission_attempt") @db.Timestamptz()
+  reportedAt             DateTime          @map("reported_at") @db.Timestamptz()
+  submittedAt            DateTime?         @map("submitted_at") @db.Timestamptz()
+  receivedAt             DateTime?         @map("received_at") @db.Timestamptz()
+  resolvedAt             DateTime?         @map("resolved_at") @db.Timestamptz()
+  closedAt               DateTime?         @map("closed_at") @db.Timestamptz()
+  expectedResolutionAt   DateTime?         @map("expected_resolution_at") @db.Timestamptz()
+  citizenVerified        Boolean?          @map("citizen_verified")
+  citizenVerificationNote String?          @map("citizen_verification_note") @db.Text
+  isPublic               Boolean           @default(true) @map("is_public")
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt              DateTime          @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user             User                    @relation(fields: [userId], references: [id])
+  category         Category?               @relation(fields: [categoryId], references: [id])
+  subcategory      Subcategory?            @relation(fields: [subcategoryId], references: [id])
+  authority        Authority?              @relation(fields: [authorityId], references: [id])
+  department       Department?             @relation(fields: [departmentId], references: [id])
+  assignedOfficer  AdminUser?              @relation("AssignedOfficer", fields: [assignedOfficerId], references: [id])
+  images           ComplaintImage[]
+  statusHistory    ComplaintStatusHistory[]
+  aiAnalyses       AiAnalysis[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  adminNotes       AdminNote[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([categoryId])
+  @@index([departmentId])
+  @@index([authorityId])
+  @@index([publicId])
+  @@index([assignedOfficerId])
+  @@index([createdAt])
+  @@map("complaints")
+}
+
+model ComplaintImage {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  complaintId      String        @map("complaint_id") @db.Uuid
+  storageKey       String        @map("storage_key") @db.VarChar(500)
+  thumbnailKey     String?       @map("thumbnail_key") @db.VarChar(500)
+  originalFilename String        @map("original_filename") @db.VarChar(255)
+  mimeType         String        @map("mime_type") @db.VarChar(50)
+  fileSize         Int           @map("file_size")
+  width            Int?
+  height           Int?
+  exifTimestamp    DateTime?      @map("exif_timestamp") @db.Timestamptz()
+  exifLatitude    Decimal?       @map("exif_latitude") @db.Decimal(10, 8)
+  exifLongitude   Decimal?       @map("exif_longitude") @db.Decimal(11, 8)
+  exifDevice      String?        @map("exif_device") @db.VarChar(255)
+  locationSource  LocationSource? @map("location_source")
+  imageHash       String?        @map("image_hash") @db.VarChar(64)
+  isPrimary       Boolean        @default(false) @map("is_primary")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+
+  complaint  Complaint    @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  aiAnalyses AiAnalysis[]
+
+  @@index([complaintId])
+  @@index([imageHash])
+  @@map("complaint_images")
+}
+
+model ComplaintStatusHistory {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  complaintId     String    @map("complaint_id") @db.Uuid
+  oldStatus       ComplaintStatus? @map("old_status")
+  newStatus       ComplaintStatus  @map("new_status")
+  changedByUserId String?   @map("changed_by_user_id") @db.Uuid
+  changedByAdminId String?  @map("changed_by_admin_id") @db.Uuid
+  reason          String?   @db.Text
+  metadata        Json?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  complaint    Complaint  @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  changedByUser  User?    @relation("UserStatusChanges", fields: [changedByUserId], references: [id])
+  changedByAdmin AdminUser? @relation("AdminStatusChanges", fields: [changedByAdminId], references: [id])
+
+  @@index([complaintId])
+  @@index([createdAt])
+  @@map("complaint_status_history")
+}
+
+// ============================================================
+// AI ANALYSIS
+// ============================================================
+
+model AiAnalysis {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  complaintId         String   @map("complaint_id") @db.Uuid
+  imageId             String?  @map("image_id") @db.Uuid
+  provider            String   @db.VarChar(50)
+  category            String?  @db.VarChar(100)
+  subcategory         String?  @db.VarChar(100)
+  confidence          Decimal? @db.Decimal(5, 4)
+  severity            String?  @db.VarChar(20)
+  evidence            Json?
+  explanation         String?  @db.Text
+  rawResponse         Json?    @map("raw_response")
+  generatedTitle      String?  @map("generated_title") @db.Text
+  generatedDescription String? @map("generated_description") @db.Text
+  processingTimeMs    Int?     @map("processing_time_ms")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  complaint Complaint      @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  image     ComplaintImage? @relation(fields: [imageId], references: [id])
+
+  @@index([complaintId])
+  @@map("ai_analyses")
+}
+
+// ============================================================
+// ROUTING & SLA
+// ============================================================
+
+model RoutingRule {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorityId   String   @map("authority_id") @db.Uuid
+  categoryId    String   @map("category_id") @db.Uuid
+  subcategoryId String?  @map("subcategory_id") @db.Uuid
+  departmentId  String   @map("department_id") @db.Uuid
+  priority      Priority @default(MEDIUM)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  authority   Authority    @relation(fields: [authorityId], references: [id])
+  category    Category     @relation(fields: [categoryId], references: [id])
+  subcategory Subcategory? @relation(fields: [subcategoryId], references: [id])
+  department  Department   @relation(fields: [departmentId], references: [id])
+
+  @@index([authorityId, categoryId])
+  @@map("routing_rules")
+}
+
+model SlaRule {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorityId     String    @map("authority_id") @db.Uuid
+  categoryId      String?   @map("category_id") @db.Uuid
+  priority        Priority?
+  resolutionHours Int       @map("resolution_hours")
+  escalationHours Int?      @map("escalation_hours")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  authority Authority @relation(fields: [authorityId], references: [id])
+  category  Category? @relation(fields: [categoryId], references: [id])
+
+  @@map("sla_rules")
+}
+
+// ============================================================
+// INTEGRATION
+// ============================================================
+
+model IntegrationConfig {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorityId String          @map("authority_id") @db.Uuid
+  type        IntegrationType
+  config      Json
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz()
+
+  authority Authority @relation(fields: [authorityId], references: [id])
+
+  @@map("integration_configs")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String              @map("user_id") @db.Uuid
+  complaintId String?             @map("complaint_id") @db.Uuid
+  type        String              @db.VarChar(50)
+  channel     NotificationChannel
+  title       String              @db.VarChar(255)
+  body        String              @db.Text
+  status      NotificationStatus  @default(PENDING)
+  sentAt      DateTime?           @map("sent_at") @db.Timestamptz()
+  readAt      DateTime?           @map("read_at") @db.Timestamptz()
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz()
+
+  user      User       @relation(fields: [userId], references: [id])
+  complaint Complaint? @relation(fields: [complaintId], references: [id])
+
+  @@index([userId])
+  @@index([complaintId])
+  @@map("notifications")
+}
+
+// ============================================================
+// AUDIT & ADMIN
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminId    String?  @map("admin_id") @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String?  @map("entity_id") @db.Uuid
+  complaintId String? @map("complaint_id") @db.Uuid
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(500)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  admin     AdminUser? @relation("AdminAuditLogs", fields: [adminId], references: [id])
+  user      User?      @relation("UserAuditLogs", fields: [userId], references: [id])
+  complaint Complaint? @relation(fields: [complaintId], references: [id])
+
+  @@index([adminId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model AdminNote {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  complaintId String   @map("complaint_id") @db.Uuid
+  adminId     String   @map("admin_id") @db.Uuid
+  note        String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  admin     AdminUser @relation(fields: [adminId], references: [id])
+
+  @@index([complaintId])
+  @@map("admin_notes")
+}
+
+// ============================================================
+// OTP
+// ============================================================
+
+model OtpCode {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  email     String?  @db.VarChar(255)
+  phone     String?  @db.VarChar(20)
+  code      String   @db.VarChar(6)
+  type      OtpType
+  expiresAt DateTime @map("expires_at") @db.Timestamptz()
+  usedAt    DateTime? @map("used_at") @db.Timestamptz()
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([email, type])
+  @@index([phone, type])
+  @@map("otp_codes")
+}

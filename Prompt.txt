@@ -1,0 +1,2859 @@
+# MASTER PROMPT — CIVIC COMPLAINT & PUBLIC ISSUE REPORTING PLATFORM
+
+You are a senior software architect, full-stack engineer, ML engineer, DevOps engineer, security engineer, and product designer.
+
+I want you to design and build a production-quality web platform for India that allows citizens to report public infrastructure and civic problems using photographs, location, time, and a simple complaint form.
+
+The core objective is:
+
+> A citizen should be able to photograph a civic problem, upload it, and have the platform identify the problem, determine the appropriate department/authority, generate a professional complaint, submit or route it through the appropriate official channel where technically and legally supported, and allow the citizen to track its status.
+
+Do not build this as merely a CRUD demo. Build it as a scalable civic-tech platform with a clean architecture that can later support multiple Indian cities, municipalities, departments, languages, and government integrations.
+
+---
+
+# 1. PRODUCT NAME
+
+Use a temporary working name:
+
+**CivicConnect India**
+
+The name must be configurable later.
+
+The application should have two major interfaces:
+
+1. Citizen Portal
+2. Government/Department Admin Portal
+
+There should also be a:
+
+3. Super Admin Portal
+
+---
+
+# 2. CORE PROBLEM
+
+In India, citizens frequently encounter problems such as:
+
+* Garbage accumulation
+* Overflowing garbage bins
+* Road damage
+* Potholes
+* Broken traffic signals
+* Streetlight failures
+* Open manholes
+* Sewage leakage
+* Wastewater flowing onto roads
+* Broken water pipelines
+* Water leakage
+* Flooded roads
+* Illegal dumping
+* Drain blockage
+* Damaged public infrastructure
+* Fallen trees
+* Stray/public safety infrastructure issues
+* Public toilet problems
+* Encroachment-related civic issues
+* Other municipal problems
+
+The citizen often does not know:
+
+* Which department is responsible
+* Which government portal should be used
+* What information must be included
+* How to describe the issue professionally
+* What location information is required
+* Whether the complaint was received
+* Whether anyone is working on it
+* When it will be resolved
+
+The platform should solve this routing and tracking problem.
+
+---
+
+# 3. PRIMARY USER FLOW
+
+The ideal citizen flow should be:
+
+OPEN WEBSITE
+
+↓
+
+Click:
+
+"Report a Problem"
+
+↓
+
+Choose:
+
+"Take Photo"
+or
+"Upload Photo"
+
+↓
+
+Browser requests permission for:
+
+* Camera
+* Location
+
+↓
+
+User uploads image.
+
+↓
+
+System extracts available image metadata:
+
+* GPS coordinates
+* Timestamp
+* Image dimensions
+* Device metadata where available
+
+Do NOT assume EXIF metadata always exists.
+
+If GPS metadata is unavailable:
+
+Use browser/device geolocation with explicit user permission.
+
+If geolocation is unavailable:
+
+Ask the user to manually select the location on a map.
+
+↓
+
+ML/AI analyzes the image.
+
+Example:
+
+Image contains garbage dumped beside a road.
+
+System predicts:
+
+Category:
+Garbage / Waste Management
+
+Subcategory:
+Illegal garbage dumping
+
+Confidence:
+94%
+
+↓
+
+System determines jurisdiction:
+
+Latitude/longitude
+
+↓
+
+Reverse geocoding:
+
+Country
+State
+District
+City
+Municipality
+Ward
+Local area
+
+↓
+
+Determine responsible department.
+
+Example:
+
+Garbage issue
+→ Municipal Corporation
+→ Solid Waste Management Department
+
+Traffic signal issue
+→ Traffic Police / Municipal Traffic Department depending on jurisdiction
+
+Water pipeline leak
+→ Water Supply Department
+
+Sewage leakage
+→ Sewerage / Municipal Engineering Department
+
+↓
+
+System generates a complaint draft automatically.
+
+Example:
+
+"On 16 August 2026 at approximately 8:35 PM, a significant accumulation of household waste was observed near [location]. The waste appears to be blocking part of the roadside and may create sanitation and public-health concerns. Kindly inspect the location and arrange appropriate cleaning/removal."
+
+The user can edit the generated complaint.
+
+↓
+
+User confirms:
+
+[Submit Complaint]
+
+↓
+
+System creates an internal complaint ID.
+
+Example:
+
+CIV-2026-000184
+
+↓
+
+System routes the complaint to the appropriate authority using the configured integration.
+
+↓
+
+If official API exists:
+
+Use API.
+
+If official authorized integration exists:
+
+Use that.
+
+If email submission is supported:
+
+Generate/send structured complaint email.
+
+If no machine-readable integration exists:
+
+Show the user the appropriate official portal and provide a pre-filled complaint package/copyable complaint.
+
+DO NOT perform unauthorized scraping, CAPTCHA bypassing, or automated interaction with government websites.
+
+↓
+
+Complaint status becomes:
+
+Submitted
+
+↓
+
+Government/admin receives complaint.
+
+↓
+
+Admin can update:
+
+Received
+Under Review
+Assigned
+In Progress
+Resolved
+Rejected
+Duplicate
+Needs More Information
+
+↓
+
+Citizen receives status updates.
+
+↓
+
+Citizen can view:
+
+Complaint ID
+Problem
+Photo
+Location
+Department
+Submission time
+Current status
+Assigned department
+Expected resolution date, if provided
+Status history
+
+↓
+
+After resolution:
+
+Citizen can verify whether the problem was actually resolved.
+
+---
+
+# 4. IMPORTANT ARCHITECTURAL PRINCIPLE
+
+Do NOT hard-code the entire application around one municipality.
+
+The platform must support:
+
+India
+→ State
+→ District
+→ Municipality / Municipal Corporation
+→ Ward
+→ Department
+→ Complaint category
+→ Official submission channel
+
+Create a configurable authority registry.
+
+Example conceptual structure:
+
+Authority
+
+* id
+* name
+* type
+* state
+* district
+* city
+* jurisdiction
+* website
+* contact_email
+* contact_phone
+* API_available
+* API_endpoint
+* integration_type
+* active
+
+Department
+
+* id
+* authority_id
+* name
+* category_mapping
+* escalation_time
+* contact_information
+
+The system should allow administrators to configure these without changing application code.
+
+---
+
+# 5. TECHNOLOGY STACK
+
+Use a modern production-ready stack.
+
+Recommended:
+
+Frontend:
+
+* Next.js
+* TypeScript
+* React
+* Tailwind CSS
+* shadcn/ui
+* Framer Motion where appropriate
+* Map integration
+
+Backend:
+
+* Node.js
+* TypeScript
+* NestJS OR well-structured Express/Fastify
+
+Database:
+
+* PostgreSQL
+* PostGIS for geographic queries
+
+ORM:
+
+* Prisma OR Drizzle
+
+Object storage:
+
+* S3-compatible storage
+
+Examples:
+
+* AWS S3
+* Cloudflare R2
+* MinIO for local development
+
+Authentication:
+
+* Email OTP
+* Phone OTP architecture
+* Optional Google login
+* Secure session/JWT architecture
+
+Queue:
+
+* Redis
+* BullMQ
+
+ML/AI:
+
+* Python microservice OR model API abstraction
+
+Maps:
+Use a provider abstraction so the system can later support:
+
+* Google Maps
+* Mapbox
+* OpenStreetMap
+
+Do not tightly couple the entire codebase to one map provider.
+
+Deployment architecture should be cloud-ready.
+
+---
+
+# 6. HIGH-LEVEL ARCHITECTURE
+
+Create:
+
+Frontend
+↓
+API Gateway / Backend
+↓
+Authentication Service
+↓
+Complaint Service
+↓
+Image Processing Service
+↓
+ML Classification Service
+↓
+Geolocation/Jurisdiction Service
+↓
+Authority Routing Engine
+↓
+Government Integration Layer
+↓
+Notification Service
+
+Database:
+
+PostgreSQL + PostGIS
+
+Supporting infrastructure:
+
+Redis
+Object Storage
+Background Workers
+Logging
+Monitoring
+
+---
+
+# 7. FRONTEND — CITIZEN PORTAL
+
+Create a premium, trustworthy civic-tech UI.
+
+Design principles:
+
+* Extremely simple
+* Mobile-first
+* Accessible
+* Fast
+* Minimal form filling
+* Clear status indicators
+* Marathi/Hindi/English-ready
+* Suitable for users who are not technically sophisticated
+
+Homepage sections:
+
+Hero:
+
+"See a Problem? Report It."
+
+Subheading:
+
+"Report garbage, damaged roads, broken signals, water leaks and other civic problems — all from one place."
+
+Primary CTA:
+
+"Report a Problem"
+
+Secondary CTA:
+
+"Track Complaint"
+
+Other sections:
+
+How It Works
+
+1. Capture
+2. Identify
+3. Submit
+4. Track
+5. Resolve
+
+Problem Categories
+
+Recent Reports / Public Issues
+
+How the Platform Works
+
+FAQ
+
+Government Departments
+
+Footer
+
+---
+
+# 8. REPORT PROBLEM PAGE
+
+This is the most important page.
+
+The process should be a multi-step wizard.
+
+STEP 1:
+
+Upload image.
+
+Options:
+
+* Take Photo
+* Upload Photo
+* Upload multiple images
+
+Allow JPG, JPEG, PNG, WEBP.
+
+Validate:
+
+* file size
+* MIME type
+* extension
+* dimensions
+
+Perform server-side validation too.
+
+---
+
+STEP 2:
+
+Location
+
+Request browser geolocation.
+
+Display:
+
+"Location detected"
+
+Show map marker.
+
+Allow:
+
+"Change Location"
+
+User can drag marker.
+
+Display:
+
+Approximate address.
+
+Never expose exact location publicly unless appropriate.
+
+---
+
+STEP 3:
+
+AI ANALYSIS
+
+Show:
+
+"Analyzing your report..."
+
+Then display:
+
+Detected problem:
+Garbage accumulation
+
+Confidence:
+94%
+
+Possible category:
+Waste Management
+
+Possible department:
+Municipal Corporation — Solid Waste Management
+
+Allow user to correct AI:
+
+"Is this correct?"
+
+[Yes]
+
+[Change Category]
+
+The user must always be able to override the AI prediction.
+
+---
+
+# 9. MANUAL CATEGORY SELECTION
+
+Create a fallback category selector.
+
+Categories should be configurable.
+
+Initial categories:
+
+Waste Management
+
+* Garbage accumulation
+* Overflowing bin
+* Illegal dumping
+* Construction waste
+
+Roads
+
+* Pothole
+* Damaged road
+* Broken pavement
+* Road obstruction
+
+Traffic
+
+* Broken traffic signal
+* Signal malfunction
+* Missing road sign
+* Traffic obstruction
+
+Water
+
+* Water pipeline leak
+* No water supply
+* Contaminated water
+* Waterlogging
+
+Sewerage
+
+* Sewage leakage
+* Blocked drain
+* Open sewer
+* Overflowing drainage
+
+Street Lighting
+
+* Streetlight not working
+* Damaged streetlight
+
+Public Infrastructure
+
+* Broken public property
+* Damaged bus stop
+* Damaged public toilet
+
+Environment
+
+* Illegal dumping
+* Fallen tree
+* Pollution
+
+Other
+
+---
+
+# 10. AI IMAGE CLASSIFICATION
+
+Build the system so that the ML model can be replaced later.
+
+Create an abstraction:
+
+ImageClassifier
+
+Methods:
+
+analyzeImage(image)
+
+return:
+
+{
+category,
+subcategory,
+confidence,
+detected_objects,
+severity,
+explanation
+}
+
+Do not hard-code the frontend to a specific AI provider.
+
+Create a provider interface.
+
+Possible implementations:
+
+Vision API
+Custom computer vision model
+Open-source model
+Future fine-tuned model
+
+The initial version can use a vision-capable AI model for classification, but the architecture must support replacing it with a custom ML model later.
+
+---
+
+# 11. AI CLASSIFICATION REQUIREMENTS
+
+The model should classify:
+
+1. Problem category
+2. Problem subcategory
+3. Severity
+4. Confidence
+5. Relevant visual evidence
+
+Example:
+
+{
+"category": "waste_management",
+"subcategory": "illegal_dumping",
+"confidence": 0.94,
+"severity": "medium",
+"evidence": [
+"large amount of loose waste",
+"waste located on roadside"
+]
+}
+
+The system should NEVER automatically submit a high-impact complaint solely because an AI model is confident.
+
+The user should confirm the category before final submission.
+
+---
+
+# 12. IMAGE METADATA
+
+Create an image metadata extraction service.
+
+Extract when available:
+
+* EXIF timestamp
+* GPS latitude
+* GPS longitude
+* device information where appropriate
+* image dimensions
+
+However:
+
+Do not rely on EXIF.
+
+Possible flow:
+
+EXIF GPS
+↓
+if unavailable
+↓
+browser geolocation
+↓
+if unavailable
+↓
+manual map selection
+
+Store:
+
+location_source:
+
+"exif"
+"browser"
+"manual"
+
+Store metadata separately from the public image record.
+
+---
+
+# 13. GEOLOCATION
+
+Use PostGIS.
+
+Store coordinates as a geographic POINT.
+
+Example conceptual model:
+
+location:
+POINT(latitude, longitude)
+
+Perform reverse geocoding.
+
+Return:
+
+country
+state
+district
+city
+ward
+postal code
+formatted address
+
+Create a jurisdiction service:
+
+getJurisdiction(latitude, longitude)
+
+Return:
+
+{
+authority,
+municipality,
+ward,
+departments
+}
+
+The jurisdiction engine must be configurable.
+
+---
+
+# 14. DEPARTMENT ROUTING ENGINE
+
+Create:
+
+ComplaintRouter
+
+Input:
+
+category
+subcategory
+latitude
+longitude
+jurisdiction
+
+Output:
+
+responsible authority
+responsible department
+submission channel
+priority
+expected SLA
+
+Example:
+
+Garbage
+→ Municipal Corporation
+→ Solid Waste Management
+
+Broken traffic signal
+→ Traffic-related authority configured for that jurisdiction
+
+Water pipeline leak
+→ Water Supply Department
+
+Sewage
+→ Sewerage Department
+
+Never assume the same department structure exists in every Indian city.
+
+Use configurable rules.
+
+---
+
+# 15. COMPLAINT GENERATION
+
+The system should automatically generate a professional complaint.
+
+Inputs:
+
+* category
+* subcategory
+* location
+* timestamp
+* AI observations
+* user description
+* severity
+
+Output:
+
+Title
+
+Description
+
+Example:
+
+TITLE:
+
+"Garbage accumulation reported near [location]"
+
+DESCRIPTION:
+
+"Garbage has accumulated at the reported location and appears to be affecting the surrounding public area. The issue was observed on [date/time]. Kindly inspect the location and arrange appropriate cleaning and waste removal."
+
+Do NOT invent facts.
+
+The AI must never claim:
+
+* exact quantity
+* health consequences
+* responsible person
+* legal violations
+* intentional dumping
+* exact duration
+
+unless the user or reliable data explicitly provides them.
+
+---
+
+# 16. USER EDITABLE DESCRIPTION
+
+After AI generates the complaint:
+
+Display:
+
+"AI-generated complaint"
+
+Allow editing.
+
+Fields:
+
+Title
+Description
+
+Buttons:
+
+Regenerate
+Edit
+Continue
+
+The user must have final control over the submitted text.
+
+---
+
+# 17. SEVERITY
+
+Create configurable severity:
+
+Low
+Medium
+High
+Critical
+
+Do not allow AI alone to determine emergency classifications without safeguards.
+
+Examples:
+
+Low:
+Minor garbage issue
+
+Medium:
+Large garbage accumulation
+
+High:
+Major road obstruction
+
+Critical:
+Immediate public safety hazard
+
+The exact definitions must be configurable by authority.
+
+---
+
+# 18. COMPLAINT DATABASE MODEL
+
+Create a robust relational schema.
+
+Users
+
+Fields:
+
+id
+name
+email
+phone
+password_hash / auth provider
+created_at
+updated_at
+
+Complaints
+
+Fields:
+
+id
+public_id
+user_id
+category_id
+subcategory_id
+authority_id
+department_id
+title
+description
+status
+priority
+latitude
+longitude
+location
+address
+ward
+city
+district
+state
+country
+reported_at
+submitted_at
+resolved_at
+expected_resolution_at
+created_at
+updated_at
+
+ComplaintImages
+
+Fields:
+
+id
+complaint_id
+storage_key
+original_filename
+mime_type
+file_size
+width
+height
+exif_timestamp
+exif_latitude
+exif_longitude
+location_source
+created_at
+
+ComplaintStatusHistory
+
+Fields:
+
+id
+complaint_id
+old_status
+new_status
+changed_by
+reason
+created_at
+
+Departments
+
+Authorities
+
+Categories
+
+Subcategories
+
+IntegrationConfigurations
+
+Notifications
+
+AuditLogs
+
+AIAnalyses
+
+---
+
+# 19. COMPLAINT STATUS SYSTEM
+
+Initial statuses:
+
+DRAFT
+
+ANALYZING
+
+AWAITING_USER_CONFIRMATION
+
+READY_TO_SUBMIT
+
+SUBMITTED
+
+RECEIVED
+
+UNDER_REVIEW
+
+ASSIGNED
+
+IN_PROGRESS
+
+NEEDS_INFORMATION
+
+RESOLVED
+
+CLOSED
+
+REJECTED
+
+DUPLICATE
+
+FAILED_SUBMISSION
+
+Every status transition must be recorded.
+
+Never overwrite history.
+
+---
+
+# 20. COMPLAINT TRACKING
+
+Citizen should have:
+
+"My Complaints"
+
+Each card:
+
+Complaint ID
+Category
+Image
+Location
+Date
+Current status
+
+Example:
+
+CIV-2026-000184
+
+Garbage accumulation
+
+Status:
+IN PROGRESS
+
+Reported:
+16 Aug 2026
+
+Department:
+Solid Waste Management
+
+---
+
+# 21. COMPLAINT DETAIL PAGE
+
+Show a timeline:
+
+16 Aug — Complaint submitted
+
+16 Aug — Received by department
+
+17 Aug — Assigned to sanitation team
+
+18 Aug — Work started
+
+19 Aug — Issue resolved
+
+Include:
+
+Photos
+Location
+Description
+Department
+Complaint ID
+Status
+Timeline
+
+If department provides an external reference number:
+
+Display:
+
+Official Complaint Number:
+MC-92831
+
+Provide official source link where appropriate.
+
+---
+
+# 22. CITIZEN RESOLUTION VERIFICATION
+
+After the authority marks a complaint resolved:
+
+Ask citizen:
+
+"Has this problem actually been resolved?"
+
+Options:
+
+Yes, resolved
+
+No, still exists
+
+Partially resolved
+
+Allow:
+
+Upload verification image.
+
+If "No":
+
+Create a reopen/escalation workflow.
+
+This is a major feature.
+
+---
+
+# 23. GOVERNMENT ADMIN PORTAL
+
+Create a completely separate admin interface.
+
+Example route:
+
+/admin
+
+Authentication must be separate and role-based.
+
+Dashboard:
+
+Total Complaints
+New Complaints
+Pending
+In Progress
+Resolved
+Overdue
+High Priority
+Today's Complaints
+
+Charts:
+
+Complaints by category
+Complaints by ward
+Complaints by department
+Resolution time
+Complaint volume over time
+
+Map:
+
+Show complaint locations.
+
+Use clustering for large numbers of complaints.
+
+---
+
+# 24. ADMIN COMPLAINT QUEUE
+
+Table columns:
+
+Complaint ID
+Category
+Priority
+Location
+Reported Time
+Status
+Assigned Officer
+SLA
+Actions
+
+Filters:
+
+Category
+Status
+Priority
+Ward
+Date
+Department
+Assigned Officer
+
+Search:
+
+Complaint ID
+Address
+Description
+
+---
+
+# 25. ADMIN COMPLAINT DETAIL
+
+Admin should see:
+
+Citizen complaint
+
+Photos
+
+Location map
+
+AI classification
+
+AI confidence
+
+Description
+
+Timestamp
+
+Department
+
+Status
+
+History
+
+External government reference number
+
+Admin notes
+
+Assignment
+
+SLA
+
+Actions
+
+Buttons:
+
+Accept
+Assign
+Start Work
+Request Information
+Mark Resolved
+Reject
+Mark Duplicate
+Escalate
+
+---
+
+# 26. ADMIN ROLES
+
+Implement RBAC.
+
+Roles:
+
+SUPER_ADMIN
+
+AUTHORITY_ADMIN
+
+DEPARTMENT_ADMIN
+
+OFFICER
+
+VIEWER
+
+Permissions must be configurable.
+
+Example:
+
+Officer:
+View assigned complaints
+Update status
+Add notes
+
+Department Admin:
+View department complaints
+Assign officers
+Update statuses
+View analytics
+
+Authority Admin:
+Manage departments
+View all complaints in authority
+
+Super Admin:
+Everything
+
+---
+
+# 27. GOVERNMENT INTEGRATION ARCHITECTURE
+
+This is extremely important.
+
+Do NOT create a fake assumption that every Indian government portal has an API.
+
+Create an integration interface:
+
+GovernmentIntegration
+
+Methods:
+
+submitComplaint()
+getComplaintStatus()
+getDepartments()
+getComplaintDetails()
+
+Create adapter implementations.
+
+Examples:
+
+OfficialAPIIntegration
+
+EmailIntegration
+
+WebhookIntegration
+
+PortalLinkIntegration
+
+ManualSubmissionIntegration
+
+Future integrations can be added without changing the complaint system.
+
+Example:
+
+MunicipalityIntegration
+
+TrafficAuthorityIntegration
+
+WaterDepartmentIntegration
+
+etc.
+
+---
+
+# 28. SUBMISSION FLOW
+
+When user clicks Submit:
+
+1. Validate complaint.
+2. Validate location.
+3. Validate authority.
+4. Validate category.
+5. Store complaint.
+6. Create public complaint ID.
+7. Create submission job.
+8. Send to integration queue.
+9. Worker processes submission.
+10. Store response.
+11. Update complaint status.
+12. Store external reference number.
+13. Notify citizen.
+
+Use background jobs.
+
+Do NOT block the user's HTTP request while waiting for an external government system.
+
+---
+
+# 29. FAILURE HANDLING
+
+If submission fails:
+
+Set:
+
+FAILED_SUBMISSION
+
+Store:
+
+error_code
+error_message
+integration
+retry_count
+last_attempt
+
+Use exponential retry.
+
+Example:
+
+1st retry
+30 seconds
+
+2nd
+2 minutes
+
+3rd
+10 minutes
+
+Do not retry indefinitely.
+
+Admin should see:
+
+"Government submission failed."
+
+Provide a fallback:
+
+"Submit manually"
+
+with:
+
+* generated complaint
+* image
+* location
+* official portal link
+* reference information
+
+---
+
+# 30. NOTIFICATION SYSTEM
+
+Create notification abstraction.
+
+Channels:
+
+Email
+SMS
+Push notification
+WhatsApp integration later
+
+Events:
+
+Complaint submitted
+Complaint received
+Complaint assigned
+Status changed
+Information requested
+Complaint resolved
+Complaint reopened
+
+Do not hard-code a single provider.
+
+Create:
+
+NotificationProvider
+
+---
+
+# 31. MULTI-LANGUAGE SUPPORT
+
+Architecture must support:
+
+English
+Hindi
+Marathi
+
+Do not hard-code UI strings directly into components.
+
+Use i18n.
+
+Example:
+
+en.json
+hi.json
+mr.json
+
+All categories and system messages should also be translatable.
+
+---
+
+# 32. PRIVACY
+
+This platform handles:
+
+* images
+* location
+* timestamps
+* citizen identity
+* phone/email
+
+Implement privacy by design.
+
+Requirements:
+
+Explicit location permission.
+
+Privacy policy.
+
+Consent where necessary.
+
+Allow users to delete their account.
+
+Do not publicly expose:
+
+phone number
+email
+exact home location
+private metadata
+
+Strip sensitive EXIF metadata from public image copies.
+
+Keep original metadata in protected storage only when necessary.
+
+---
+
+# 33. IMAGE SECURITY
+
+Never trust uploaded files.
+
+Implement:
+
+MIME validation
+File signature validation
+Maximum file size
+Maximum image dimensions
+Image processing
+Malware scanning architecture
+Filename sanitization
+
+Generate internal storage keys.
+
+Do not use original filenames as storage paths.
+
+Use signed URLs for private images.
+
+---
+
+# 34. ANTI-SPAM
+
+Implement:
+
+Rate limiting
+IP throttling
+Account-based limits
+Duplicate detection
+Image hashing
+
+Example:
+
+If 50 users submit identical images for the same location within 5 minutes:
+
+Potential duplicate cluster.
+
+Do not automatically delete complaints.
+
+Mark:
+
+Possible duplicate
+
+and let the system/admin determine whether to merge.
+
+---
+
+# 35. DUPLICATE DETECTION
+
+Create:
+
+DuplicateDetector
+
+Use:
+
+image perceptual hash
+location proximity
+category
+time window
+
+Example:
+
+same category
+within 100 meters
+within 24 hours
+similar image
+
+→ possible duplicate
+
+Display to citizen:
+
+"This issue may already have been reported."
+
+Allow:
+
+View existing complaint
+
+or
+
+Submit anyway
+
+---
+
+# 36. PUBLIC ISSUE MAP
+
+Optional but highly valuable feature.
+
+Create:
+
+/map
+
+Display anonymized public complaints.
+
+Users can see:
+
+Garbage hotspots
+Pothole hotspots
+Traffic signal issues
+Water leaks
+
+Do not expose exact personal information.
+
+Cluster nearby complaints.
+
+---
+
+# 37. ANALYTICS
+
+Citizen analytics:
+
+My complaints
+Average resolution time
+Resolved complaints
+Pending complaints
+
+Government analytics:
+
+Complaint volume
+Category distribution
+Ward distribution
+Resolution rate
+Average resolution time
+SLA violations
+Recurring locations
+Hotspots
+Department performance
+
+Do not manipulate statistics.
+
+---
+
+# 38. AI HOTSPOT DETECTION
+
+Future feature:
+
+Use historical complaints to detect recurring problem areas.
+
+Example:
+
+Same road receives:
+
+20 garbage complaints
+within 30 days
+
+System identifies:
+
+"Recurring waste-management hotspot"
+
+Admin dashboard displays:
+
+Potential recurring issue
+
+This should be analytics, not an automatic accusation against an authority.
+
+---
+
+# 39. AI SHOULD NOT INVENT INFORMATION
+
+This rule is mandatory.
+
+AI must never fabricate:
+
+Location
+Date
+Authority
+Government reference number
+Legal section
+Complaint status
+Resolution date
+Department
+Facts about the image
+
+If data is unavailable:
+
+Return:
+
+"Information unavailable"
+
+rather than guessing.
+
+---
+
+# 40. SECURITY
+
+Implement:
+
+Input validation
+SQL injection protection
+XSS protection
+CSRF protection where applicable
+Authentication security
+RBAC
+Rate limiting
+Secure cookies
+Password hashing if passwords are used
+JWT/session rotation
+API authorization
+Audit logs
+
+Admin APIs must never be accessible to ordinary citizens.
+
+Never trust frontend authorization.
+
+Every permission must be checked server-side.
+
+---
+
+# 41. AUDIT LOGGING
+
+Record sensitive admin actions.
+
+Example:
+
+Admin:
+[admin@example.com](mailto:admin@example.com)
+
+Action:
+Changed complaint status
+
+Complaint:
+CIV-2026-000184
+
+Old:
+IN_PROGRESS
+
+New:
+RESOLVED
+
+Timestamp:
+...
+
+IP:
+...
+
+Create immutable audit records where possible.
+
+---
+
+# 42. API STRUCTURE
+
+Create clean REST APIs.
+
+Example:
+
+POST /api/auth/register
+
+POST /api/auth/login
+
+POST /api/auth/logout
+
+GET /api/categories
+
+POST /api/complaints
+
+POST /api/complaints/analyze
+
+GET /api/complaints
+
+GET /api/complaints/:id
+
+PATCH /api/complaints/:id
+
+POST /api/complaints/:id/submit
+
+POST /api/complaints/:id/reopen
+
+POST /api/complaints/:id/verify-resolution
+
+GET /api/complaints/:id/history
+
+GET /api/authorities
+
+GET /api/departments
+
+GET /api/jurisdiction
+
+Admin:
+
+GET /api/admin/complaints
+
+GET /api/admin/analytics
+
+PATCH /api/admin/complaints/:id/status
+
+POST /api/admin/complaints/:id/assign
+
+POST /api/admin/complaints/:id/notes
+
+---
+
+# 43. DATABASE
+
+Use migrations.
+
+Use proper indexes.
+
+Important indexes:
+
+user_id
+status
+category_id
+department_id
+authority_id
+created_at
+
+For PostGIS:
+
+GIST index on location.
+
+Use foreign keys.
+
+Use transactions for complaint creation and status changes.
+
+---
+
+# 44. BACKGROUND JOBS
+
+Create queues for:
+
+Image processing
+
+AI analysis
+
+Reverse geocoding
+
+Jurisdiction detection
+
+Complaint submission
+
+Government status polling where legally/technically permitted
+
+Notifications
+
+Duplicate detection
+
+Analytics processing
+
+Example queues:
+
+image-analysis
+
+geocoding
+
+complaint-submission
+
+notifications
+
+government-status
+
+analytics
+
+---
+
+# 45. OBSERVABILITY
+
+Implement structured logging.
+
+Each request should have:
+
+request_id
+
+Each complaint submission should have:
+
+complaint_id
+
+Each integration call should log:
+
+integration
+request_id
+complaint_id
+status
+latency
+error
+
+Never log:
+
+passwords
+OTP
+private keys
+API secrets
+full authentication tokens
+
+---
+
+# 46. ENVIRONMENT VARIABLES
+
+Create:
+
+.env.example
+
+Example categories:
+
+DATABASE_URL
+
+REDIS_URL
+
+STORAGE_ENDPOINT
+
+STORAGE_BUCKET
+
+STORAGE_ACCESS_KEY
+
+STORAGE_SECRET_KEY
+
+MAP_PROVIDER
+
+MAP_API_KEY
+
+AI_PROVIDER
+
+AI_API_KEY
+
+EMAIL_PROVIDER
+
+SMS_PROVIDER
+
+JWT_SECRET
+
+ENCRYPTION_KEY
+
+Do not commit .env.
+
+Add .env to .gitignore.
+
+---
+
+# 47. DEVELOPMENT ENVIRONMENT
+
+Create Docker Compose for:
+
+PostgreSQL/PostGIS
+Redis
+Backend
+Frontend
+ML service if applicable
+
+The project should run locally with one command as much as reasonably possible.
+
+Example:
+
+docker compose up
+
+---
+
+# 48. TESTING
+
+Create:
+
+Unit tests
+
+Integration tests
+
+API tests
+
+Database tests
+
+Authentication tests
+
+RBAC tests
+
+Image upload tests
+
+AI response validation tests
+
+Complaint routing tests
+
+Government integration mock tests
+
+End-to-end tests
+
+Critical test:
+
+Citizen submits image
+→ AI analyzes
+→ jurisdiction determined
+→ department selected
+→ complaint generated
+→ user confirms
+→ complaint created
+→ submission job created
+→ mock authority receives complaint
+→ status updated
+→ citizen sees status
+
+---
+
+# 49. MOCK GOVERNMENT INTEGRATION
+
+For development, create:
+
+MockMunicipalityIntegration
+
+It should simulate:
+
+Complaint submission
+
+Reference number
+
+Status changes
+
+Example:
+
+External ID:
+
+MUN-928372
+
+Return:
+
+{
+"success": true,
+"externalReference": "MUN-928372",
+"status": "RECEIVED"
+}
+
+This lets the complete system work before real government integrations are available.
+
+---
+
+# 50. SEED DATA
+
+Create seed data for development.
+
+Authorities:
+
+Example fictional/demo municipalities only.
+
+Do not present fictional authorities as real government entities.
+
+Departments:
+
+Waste Management
+Roads
+Traffic
+Water Supply
+Sewerage
+Street Lighting
+Public Works
+
+Categories and subcategories.
+
+Admin users:
+
+superadmin
+authorityadmin
+departmentadmin
+officer
+
+Use development-only credentials and clearly mark them.
+
+---
+
+# 51. ADMIN CONFIGURATION
+
+Super admin should be able to configure:
+
+Authorities
+Departments
+Categories
+Subcategories
+Routing rules
+SLA rules
+Integration types
+Notification settings
+
+Example routing rule:
+
+IF
+
+category = waste_management
+
+AND
+
+authority = XYZ Municipal Corporation
+
+THEN
+
+department = Solid Waste Management
+
+---
+
+# 52. SLA ENGINE
+
+Create configurable SLA.
+
+Example:
+
+Garbage:
+48 hours
+
+Water leakage:
+24 hours
+
+Critical infrastructure:
+4 hours
+
+These are example values only.
+
+Do not assume they are official government SLAs.
+
+Admins must configure actual SLA values for each authority.
+
+System calculates:
+
+submitted_at + SLA
+
+= expected resolution time
+
+Dashboard should highlight overdue complaints.
+
+---
+
+# 53. ESCALATION ENGINE
+
+If complaint remains unresolved after configured SLA:
+
+Mark:
+
+OVERDUE
+
+Notify appropriate admin.
+
+Optional escalation:
+
+Department Officer
+↓
+Department Admin
+↓
+Authority Admin
+
+Do not automatically accuse the authority or publish allegations.
+
+---
+
+# 54. DESIGN SYSTEM
+
+Create reusable components:
+
+Button
+Input
+Select
+Modal
+Toast
+Badge
+Card
+DataTable
+Map
+StatusTimeline
+ComplaintCard
+ImageUploader
+LocationPicker
+AIAnalysisCard
+DepartmentCard
+AdminSidebar
+DashboardMetric
+Chart
+EmptyState
+LoadingState
+ErrorState
+
+Use consistent design tokens.
+
+---
+
+# 55. UI DESIGN
+
+Visual direction:
+
+Modern
+Clean
+Trustworthy
+Government-grade
+Premium but approachable
+
+Avoid:
+
+Overly flashy animations
+Excessive gradients
+Confusing dashboards
+Too much text
+
+Citizen portal should feel extremely simple.
+
+Admin portal can be information-dense.
+
+---
+
+# 56. ACCESSIBILITY
+
+Implement:
+
+Keyboard navigation
+ARIA labels
+Readable contrast
+Large touch targets
+Screen reader compatibility
+Clear error messages
+
+Do not rely only on color to communicate complaint status.
+
+Example:
+
+Submitted
+Received
+In Progress
+Resolved
+
+should include text + icon/status indicator.
+
+---
+
+# 57. MOBILE EXPERIENCE
+
+The citizen portal must be mobile-first.
+
+The most important action:
+
+Report Problem
+
+should be accessible immediately.
+
+Camera upload should work well on Android and iPhone browsers.
+
+The interface should work on slow mobile connections.
+
+Compress images client-side before upload where appropriate.
+
+Do not sacrifice original evidence unnecessarily; preserve an appropriate original/private copy if needed.
+
+---
+
+# 58. ADMIN MAP
+
+Create a map dashboard.
+
+Features:
+
+Marker clustering
+Filter by category
+Filter by severity
+Filter by status
+Filter by ward
+Date range
+
+Click marker:
+
+Complaint ID
+Category
+Status
+Location
+Image thumbnail
+
+Click:
+
+"View Complaint"
+
+---
+
+# 59. PUBLIC TRUST FEATURES
+
+Create a "How it works" section explaining:
+
+We identify the issue
+We determine the responsible authority
+We prepare the complaint
+We route it through supported official channels
+We track status
+
+Clearly communicate:
+
+"This platform does not replace official government authorities. Availability of automated submission and status tracking depends on the authority's technical systems and policies."
+
+This disclaimer is important.
+
+---
+
+# 60. NO FAKE GOVERNMENT AFFILIATION
+
+The UI must never imply that CivicConnect India is:
+
+* an official government department
+* a municipal corporation
+* police
+* government agency
+
+unless an actual formal relationship exists.
+
+Use wording such as:
+
+"Citizen reporting platform"
+
+or
+
+"Technology platform for routing civic complaints."
+
+---
+
+# 61. LEGAL/COMPLIANCE ARCHITECTURE
+
+Design for Indian privacy and data-protection requirements.
+
+Before production launch, the implementation should be reviewed for applicable Indian laws, rules, government portal terms, data retention requirements, and integration permissions.
+
+Do not make legal claims in the product without verification.
+
+Create:
+
+Privacy Policy page
+
+Terms of Service
+
+Data deletion workflow
+
+Consent records where required
+
+---
+
+# 62. API DOCUMENTATION
+
+Use OpenAPI/Swagger.
+
+Every API should document:
+
+Authentication
+Request
+Response
+Errors
+Validation
+Authorization
+
+Example:
+
+POST /api/complaints
+
+Request:
+
+{
+"categoryId": "...",
+"subcategoryId": "...",
+"description": "...",
+"latitude": 18.52,
+"longitude": 73.85
+}
+
+Response:
+
+{
+"id": "...",
+"publicId": "CIV-2026-000184",
+"status": "DRAFT"
+}
+
+---
+
+# 63. ERROR HANDLING
+
+Create standardized errors.
+
+Example:
+
+{
+"error": {
+"code": "INVALID_LOCATION",
+"message": "A valid complaint location is required."
+}
+}
+
+Do not expose internal stack traces to users.
+
+Log detailed errors internally.
+
+---
+
+# 64. PROJECT STRUCTURE
+
+Use a clean monorepo if appropriate.
+
+Suggested structure:
+
+/apps
+/web
+/admin
+/api
+/ml
+
+/packages
+/ui
+/types
+/config
+/utils
+
+/infrastructure
+
+/docs
+
+/tests
+
+You may modify the structure if you have a better architectural reason, but explain the decision.
+
+---
+
+# 65. DEVELOPMENT METHODOLOGY
+
+DO NOT attempt to generate the entire application blindly in one pass.
+
+Work in phases.
+
+PHASE 1:
+Architecture
+
+PHASE 2:
+Database
+
+PHASE 3:
+Backend foundation
+
+PHASE 4:
+Authentication
+
+PHASE 5:
+Citizen UI
+
+PHASE 6:
+Complaint creation
+
+PHASE 7:
+Image processing
+
+PHASE 8:
+AI classification
+
+PHASE 9:
+Geolocation
+
+PHASE 10:
+Jurisdiction routing
+
+PHASE 11:
+Government integration abstraction
+
+PHASE 12:
+Admin portal
+
+PHASE 13:
+Tracking
+
+PHASE 14:
+Notifications
+
+PHASE 15:
+Analytics
+
+PHASE 16:
+Security
+
+PHASE 17:
+Testing
+
+PHASE 18:
+Deployment
+
+---
+
+# 66. HOW YOU SHOULD WORK
+
+Before writing code:
+
+1. Inspect the repository.
+2. Determine whether code already exists.
+3. Identify the framework.
+4. Identify dependencies.
+5. Identify database configuration.
+6. Identify environment variables.
+7. Do not overwrite existing work unnecessarily.
+8. Create a PROJECT_PLAN.md.
+9. Create ARCHITECTURE.md.
+10. Create DATABASE.md.
+11. Create API.md.
+
+Then implement incrementally.
+
+After each major phase:
+
+* Run tests.
+* Run lint.
+* Run type checking.
+* Fix errors.
+* Verify the application still starts.
+* Update documentation.
+
+Do not proceed while fundamental build errors remain.
+
+---
+
+# 67. IMPORTANT CLAUDE CODE BEHAVIOR
+
+When implementing:
+
+DO NOT:
+
+* fabricate government APIs
+* fabricate government departments
+* hard-code fake official complaint numbers
+* bypass CAPTCHAs
+* bypass authentication
+* scrape government portals against their rules
+* expose private user information
+* trust client-side permissions
+* assume EXIF exists
+* trust AI output blindly
+* create fake resolution statuses
+* claim a complaint was officially submitted when it was not
+
+Instead:
+
+Use adapters.
+
+Use mock integrations during development.
+
+Clearly distinguish:
+
+INTERNAL PLATFORM STATUS
+
+from
+
+OFFICIAL GOVERNMENT STATUS.
+
+---
+
+# 68. STATUS MODEL FOR INTEGRATIONS
+
+Maintain two concepts:
+
+Platform Status
+
+and
+
+External Status.
+
+Example:
+
+platform_status:
+SUBMITTED
+
+external_status:
+RECEIVED
+
+external_reference:
+MC-938282
+
+integration_status:
+SUCCESS
+
+This prevents confusion.
+
+---
+
+# 69. AI MODEL FALLBACK
+
+If AI is unavailable:
+
+The platform must still work.
+
+Fallback:
+
+User selects category manually.
+
+The complaint can still be submitted.
+
+The application must not become unusable because the AI provider is unavailable.
+
+---
+
+# 70. GEOLOCATION FALLBACK
+
+If reverse geocoding fails:
+
+Display coordinates and allow user to manually select the area.
+
+If location is completely unavailable:
+
+Allow manual address entry.
+
+---
+
+# 71. OFFLINE / POOR NETWORK FUTURE SUPPORT
+
+Design the frontend so PWA/offline support can be added later.
+
+Potential future flow:
+
+User takes photo offline
+↓
+Report saved locally
+↓
+Network returns
+↓
+Complaint uploaded
+
+Do not necessarily implement full offline mode in V1 unless it is straightforward.
+
+---
+
+# 72. FUTURE FEATURES
+
+Keep architecture extensible for:
+
+* WhatsApp reporting
+* Telegram reporting
+* Mobile app
+* Voice complaints
+* Regional language voice input
+* OCR
+* Video evidence
+* Multiple images
+* Citizen reputation
+* Community validation
+* Public dashboards
+* Ward-level analytics
+* Automated escalation
+* Government API integrations
+* AI severity detection
+* AI duplicate detection
+* Predictive civic issue detection
+* Heat maps
+* Municipal performance analytics
+
+Do not implement all of these in V1.
+
+Build the architecture so they can be added later.
+
+---
+
+# 73. MVP DEFINITION
+
+The first working MVP must contain:
+
+CITIZEN:
+
+1. Register/login
+2. Report problem
+3. Upload image
+4. Detect location
+5. Select category manually
+6. AI image classification
+7. AI-generated complaint
+8. User confirmation
+9. Complaint creation
+10. Complaint tracking
+11. Status timeline
+
+ADMIN:
+
+1. Login
+2. Dashboard
+3. Complaint list
+4. Complaint details
+5. Image viewing
+6. Map location
+7. Status updates
+8. Assignment
+9. Notes
+10. Basic analytics
+
+BACKEND:
+
+1. PostgreSQL
+2. PostGIS
+3. Authentication
+4. Complaint API
+5. Image storage
+6. AI service
+7. Routing engine
+8. Mock government integration
+9. Notifications architecture
+10. Audit logs
+
+---
+
+# 74. MVP GOVERNMENT SUBMISSION
+
+For the MVP, implement:
+
+MockGovernmentIntegration
+
+and
+
+PortalLinkIntegration.
+
+Do not pretend the mock integration is a real government submission.
+
+The UI should explicitly show:
+
+"Demo/Development Authority"
+
+when using mock data.
+
+The architecture should make adding a real authority integration straightforward.
+
+---
+
+# 75. ACCEPTANCE TEST
+
+The final MVP must support this complete scenario:
+
+A citizen opens the website.
+
+They click:
+
+"Report a Problem"
+
+They upload a photograph of garbage.
+
+The system extracts image metadata if available.
+
+The browser obtains location with permission.
+
+The system reverse-geocodes the location.
+
+The system determines the municipality.
+
+The AI identifies:
+
+Waste Management
+→ Garbage Accumulation
+
+The user confirms.
+
+The AI generates a complaint.
+
+The user edits the description.
+
+The system displays:
+
+Responsible Department
+
+The user submits.
+
+The system creates:
+
+CIV-2026-XXXXXX
+
+A background worker sends the complaint to the configured mock government integration.
+
+The mock authority returns:
+
+External Reference:
+MUN-XXXXXX
+
+The complaint becomes:
+
+RECEIVED
+
+The citizen dashboard shows:
+
+Complaint received by authority.
+
+Admin dashboard shows the new complaint.
+
+Admin assigns it to an officer.
+
+Status changes:
+
+ASSIGNED
+
+Then:
+
+IN_PROGRESS
+
+Then:
+
+RESOLVED
+
+The citizen receives notifications.
+
+The citizen opens the complaint.
+
+The timeline displays every transition.
+
+The citizen verifies:
+
+"Yes, resolved."
+
+The complaint becomes:
+
+CLOSED
+
+Every action is recorded in the audit log.
+
+---
+
+# 76. FINAL QUALITY REQUIREMENT
+
+The application should feel like a serious civic technology product, not a college CRUD project.
+
+Prioritize:
+
+Reliability
+Security
+Privacy
+Accessibility
+Maintainability
+Scalability
+Clear UX
+Correct routing
+Transparent status
+Extensible integrations
+
+Do not optimize for maximum number of features.
+
+Optimize for a complete, trustworthy citizen experience.
+
+---
+
+# 77. FIRST TASK
+
+Before writing application code:
+
+1. Inspect the existing repository.
+2. Produce a concise architecture proposal.
+3. Identify the existing stack.
+4. Create the recommended project structure.
+5. Create PROJECT_PLAN.md.
+6. Create ARCHITECTURE.md.
+7. Create DATABASE.md.
+8. Create API.md.
+9. Identify anything that must be decided before implementation.
+10. Then begin Phase 1.
+
+Do not ask unnecessary questions.
+
+If a decision can safely be made using standard engineering practice, make the decision and document it.
+
+If a decision has major architectural consequences, stop and explain the alternatives before proceeding.
+
+Start by inspecting the repository and proposing the architecture.
