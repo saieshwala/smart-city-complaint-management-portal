@@ -12,6 +12,7 @@ import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AdminService } from './admin.service';
 import { AnalyticsService } from './analytics.service';
+import { AuditLogService } from './audit-log.service';
 import {
   UpdateComplaintStatusDto,
   AssignComplaintDto,
@@ -24,6 +25,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly analyticsService: AnalyticsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   // ---- Complaints ----
@@ -86,6 +88,41 @@ export class AdminController {
     @Body() dto: AddNoteDto,
   ) {
     return this.adminService.addNote(id, adminId, dto.note);
+  }
+
+  // ---- Departments ----
+
+  @Get('departments')
+  async getDepartments() {
+    return this.adminService.getDepartments();
+  }
+
+  // ---- Officers ----
+
+  @Get('officers')
+  async getOfficers() {
+    return this.adminService.getOfficers();
+  }
+
+  // ---- Audit Logs ----
+
+  @Get('audit-logs')
+  async getAuditLogs(
+    @Query('action') action?: string,
+    @Query('search') search?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.auditLogService.findAll({
+      action,
+      search,
+      dateFrom,
+      dateTo,
+      page: parseInt(page || '1', 10),
+      limit: parseInt(limit || '20', 10),
+    });
   }
 
   // ---- Stats ----

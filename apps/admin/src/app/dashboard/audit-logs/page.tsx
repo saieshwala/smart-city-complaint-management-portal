@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   ScrollText,
   Search,
-  Calendar,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -15,6 +14,7 @@ import {
   User,
   Clock,
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import apiClient from "@/lib/api-client";
 
@@ -22,14 +22,17 @@ import apiClient from "@/lib/api-client";
 
 interface AuditLog {
   id: string;
-  timestamp: string;
-  adminName: string;
-  adminEmail: string;
+  createdAt: string;
   action: string;
   entityType: string;
-  entityId: string;
+  entityId: string | null;
   complaintId: string | null;
-  details: string;
+  oldValues: any;
+  newValues: any;
+  ipAddress: string | null;
+  admin: { id: string; name: string; email: string } | null;
+  user: { id: string; name: string; email: string } | null;
+  complaint: { id: string; publicId: string; title: string } | null;
 }
 
 interface PaginationInfo {
@@ -38,121 +41,6 @@ interface PaginationInfo {
   total: number;
   totalPages: number;
 }
-
-// --- Mock data ---
-
-const mockLogs: AuditLog[] = [
-  {
-    id: "LOG-001",
-    timestamp: "2024-12-15T14:32:00Z",
-    adminName: "Rajesh Kumar",
-    adminEmail: "rajesh@civic.gov.in",
-    action: "STATUS_CHANGE",
-    entityType: "Complaint",
-    entityId: "CMP-2024-12847",
-    complaintId: "CMP-2024-12847",
-    details: 'Changed status from "New" to "In Progress"',
-  },
-  {
-    id: "LOG-002",
-    timestamp: "2024-12-15T14:15:00Z",
-    adminName: "Priya Singh",
-    adminEmail: "priya@civic.gov.in",
-    action: "ASSIGNMENT",
-    entityType: "Complaint",
-    entityId: "CMP-2024-12846",
-    complaintId: "CMP-2024-12846",
-    details: "Assigned to Water Supply Department",
-  },
-  {
-    id: "LOG-003",
-    timestamp: "2024-12-15T13:45:00Z",
-    adminName: "Amit Patel",
-    adminEmail: "amit@civic.gov.in",
-    action: "PRIORITY_CHANGE",
-    entityType: "Complaint",
-    entityId: "CMP-2024-12845",
-    complaintId: "CMP-2024-12845",
-    details: 'Changed priority from "Medium" to "High"',
-  },
-  {
-    id: "LOG-004",
-    timestamp: "2024-12-15T12:30:00Z",
-    adminName: "Rajesh Kumar",
-    adminEmail: "rajesh@civic.gov.in",
-    action: "CREATE",
-    entityType: "Department",
-    entityId: "DEPT-015",
-    complaintId: null,
-    details: 'Created new department "Digital Services"',
-  },
-  {
-    id: "LOG-005",
-    timestamp: "2024-12-15T11:20:00Z",
-    adminName: "Sneha Reddy",
-    adminEmail: "sneha@civic.gov.in",
-    action: "COMMENT",
-    entityType: "Complaint",
-    entityId: "CMP-2024-12844",
-    complaintId: "CMP-2024-12844",
-    details: "Added internal note regarding site inspection",
-  },
-  {
-    id: "LOG-006",
-    timestamp: "2024-12-14T16:45:00Z",
-    adminName: "Priya Singh",
-    adminEmail: "priya@civic.gov.in",
-    action: "STATUS_CHANGE",
-    entityType: "Complaint",
-    entityId: "CMP-2024-12843",
-    complaintId: "CMP-2024-12843",
-    details: 'Changed status from "In Progress" to "Resolved"',
-  },
-  {
-    id: "LOG-007",
-    timestamp: "2024-12-14T15:10:00Z",
-    adminName: "Amit Patel",
-    adminEmail: "amit@civic.gov.in",
-    action: "UPDATE",
-    entityType: "Officer",
-    entityId: "OFF-042",
-    complaintId: null,
-    details: "Updated officer role permissions",
-  },
-  {
-    id: "LOG-008",
-    timestamp: "2024-12-14T14:00:00Z",
-    adminName: "Rajesh Kumar",
-    adminEmail: "rajesh@civic.gov.in",
-    action: "DELETE",
-    entityType: "RoutingRule",
-    entityId: "RULE-008",
-    complaintId: null,
-    details: "Deleted routing rule for Noise Pollution category",
-  },
-  {
-    id: "LOG-009",
-    timestamp: "2024-12-14T10:30:00Z",
-    adminName: "Sneha Reddy",
-    adminEmail: "sneha@civic.gov.in",
-    action: "ESCALATION",
-    entityType: "Complaint",
-    entityId: "CMP-2024-12840",
-    complaintId: "CMP-2024-12840",
-    details: "Escalated to senior officer due to SLA breach",
-  },
-  {
-    id: "LOG-010",
-    timestamp: "2024-12-14T09:15:00Z",
-    adminName: "Priya Singh",
-    adminEmail: "priya@civic.gov.in",
-    action: "LOGIN",
-    entityType: "Session",
-    entityId: "SES-1234",
-    complaintId: null,
-    details: "Admin login from 192.168.1.45",
-  },
-];
 
 const actionTypes = [
   "All",
@@ -190,13 +78,13 @@ const entityTypeColors: Record<string, string> = {
 };
 
 export default function AuditLogsPage() {
-  const [logs, setLogs] = useState<AuditLog[]>(mockLogs);
-  const [loading, setLoading] = useState(false);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
-    limit: 10,
-    total: 47,
-    totalPages: 5,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
   });
   const [filterOpen, setFilterOpen] = useState(false);
   const [actionFilter, setActionFilter] = useState("All");
@@ -218,10 +106,21 @@ export default function AuditLogsPage() {
         if (searchTerm) params.search = searchTerm;
 
         const res = await apiClient.get("/admin/audit-logs", { params });
-        setLogs(res.data.logs || res.data);
-        if (res.data.pagination) setPagination(res.data.pagination);
+        const data = res.data;
+        // Handle TransformInterceptor response shape
+        const items = Array.isArray(data) ? data : data?.items || data?.data || [];
+        const meta = data?.meta || data?.pagination;
+        setLogs(items);
+        if (meta) {
+          setPagination({
+            page: meta.page,
+            limit: meta.limit,
+            total: meta.total,
+            totalPages: meta.totalPages,
+          });
+        }
       } catch {
-        // Keep mock data on failure
+        setLogs([]);
       } finally {
         setLoading(false);
       }
@@ -243,6 +142,30 @@ export default function AuditLogsPage() {
       minute: "2-digit",
       hour12: true,
     });
+  };
+
+  const formatDetails = (log: AuditLog): string => {
+    const { action, oldValues, newValues } = log;
+    switch (action) {
+      case "STATUS_CHANGE":
+        return `Changed status from "${oldValues?.status || "?"}" to "${newValues?.status || "?"}"${newValues?.reason ? ` — ${newValues.reason}` : ""}`;
+      case "ASSIGNMENT":
+        return `Assigned to ${newValues?.officerName || "officer"}`;
+      case "COMMENT":
+        return `Added note: "${(newValues?.note || "").slice(0, 80)}${(newValues?.note || "").length > 80 ? "..." : ""}"`;
+      case "PRIORITY_CHANGE":
+        return `Changed priority from "${oldValues?.priority || "?"}" to "${newValues?.priority || "?"}"`;
+      case "CREATE":
+        return `Created ${log.entityType}`;
+      case "UPDATE":
+        return `Updated ${log.entityType}`;
+      case "DELETE":
+        return `Deleted ${log.entityType}`;
+      case "LOGIN":
+        return `Admin login${log.ipAddress ? ` from ${log.ipAddress}` : ""}`;
+      default:
+        return `${action.replace(/_/g, " ")} on ${log.entityType}`;
+    }
   };
 
   const handlePageChange = (newPage: number) => {
@@ -373,6 +296,12 @@ export default function AuditLogsPage() {
             <Loader2 className="w-6 h-6 text-primary-600 animate-spin" />
             <span className="ml-2 text-sm text-slate-500">Loading logs...</span>
           </div>
+        ) : logs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <ScrollText className="w-10 h-10 text-slate-300 mb-3" />
+            <p className="text-sm font-medium text-slate-600">No audit logs yet</p>
+            <p className="text-xs text-slate-400 mt-1">Actions taken in the admin panel will appear here</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -411,7 +340,7 @@ export default function AuditLogsPage() {
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                         <span className="text-sm text-slate-600">
-                          {formatTimestamp(log.timestamp)}
+                          {formatTimestamp(log.createdAt)}
                         </span>
                       </div>
                     </td>
@@ -422,10 +351,10 @@ export default function AuditLogsPage() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-slate-700">
-                            {log.adminName}
+                            {log.admin?.name || log.user?.name || "System"}
                           </p>
                           <p className="text-xs text-slate-400">
-                            {log.adminEmail}
+                            {log.admin?.email || log.user?.email || ""}
                           </p>
                         </div>
                       </div>
@@ -452,22 +381,25 @@ export default function AuditLogsPage() {
                     </td>
                     <td className="px-5 py-3 whitespace-nowrap">
                       <span className="text-sm font-mono text-slate-600">
-                        {log.entityId}
+                        {log.complaint?.publicId || log.entityId?.slice(0, 8) || "--"}
                       </span>
                     </td>
                     <td className="px-5 py-3 whitespace-nowrap">
                       {log.complaintId ? (
-                        <span className="inline-flex items-center gap-1 text-sm font-mono text-primary-600 hover:text-primary-700 cursor-pointer">
-                          {log.complaintId}
+                        <Link
+                          href={`/dashboard/complaints/${log.complaintId}`}
+                          className="inline-flex items-center gap-1 text-sm font-mono text-primary-600 hover:text-primary-700 cursor-pointer"
+                        >
+                          {log.complaint?.publicId || log.complaintId.slice(0, 8)}
                           <ExternalLink className="w-3 h-3" />
-                        </span>
+                        </Link>
                       ) : (
                         <span className="text-sm text-slate-400">--</span>
                       )}
                     </td>
                     <td className="px-5 py-3">
                       <span className="text-sm text-slate-600 max-w-xs truncate block">
-                        {log.details}
+                        {formatDetails(log)}
                       </span>
                     </td>
                   </tr>
@@ -480,9 +412,9 @@ export default function AuditLogsPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 bg-slate-50 rounded-b-xl">
           <p className="text-xs text-slate-500">
-            Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-            {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
-            {pagination.total} entries
+            {pagination.total > 0
+              ? `Showing ${(pagination.page - 1) * pagination.limit + 1} to ${Math.min(pagination.page * pagination.limit, pagination.total)} of ${pagination.total} entries`
+              : "No entries"}
           </p>
           <div className="flex items-center gap-1">
             <button

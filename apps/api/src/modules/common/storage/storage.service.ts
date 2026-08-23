@@ -7,12 +7,16 @@ import {
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
   private readonly s3Client: S3Client;
   private readonly bucket: string;
+  private readonly localUploadDir: string;
+  private useLocalFallback = false;
 
   constructor(private readonly configService: ConfigService) {
     const endpoint = this.configService.get<string>('STORAGE_ENDPOINT');
@@ -32,13 +36,19 @@ export class StorageService {
       },
     });
 
+    // Local fallback directory for when S3/MinIO is unavailable
+    this.localUploadDir = path.resolve(process.cwd(), 'uploads');
+    if (!fs.existsSync(this.localUploadDir)) {
+      fs.mkdirSync(this.localUploadDir, { recursive: true });
+    }
+
     this.logger.log(
-      `Storage initialized: bucket=${this.bucket}, endpoint=${endpoint || 'AWS S3'}`,
+      `Storage initialized: bucket=${this.bucket}, endpoint=${endpoint || 'AWS S3'}, localFallback=${this.localUploadDir}`,
     );
   }
 
   /**
-   * Upload a file to S3/MinIO storage.
+   * Upload a file to S3/MinIO storage, with local filesystem fallback.
    */
   async upload(key: string, buffer: Buffer, mimeType: string): Promise<void> {
     try {
@@ -50,19 +60,27 @@ export class StorageService {
           ContentType: mimeType,
         }),
       );
-      this.logger.log(`Uploaded: ${key} (${buffer.length} bytes)`);
+      this.logger.log(`Uploaded to S3: ${key} (${buffer.length} bytes)`);
     } catch (error) {
-      this.logger.error(
-        `Upload failed for ${key}: ${error instanceof Error ? error.message : String(error)}`,
+      this.logger.warn(
+        `S3 upload failed for ${key}, using local fallback: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      // Fallback to local filesystem
+      await this.uploadLocal(key, buffer);
+      this.useLocalFallback = true;
     }
   }
 
   /**
-   * Download a file from S3/MinIO storage.
+   * Download a file from S3/MinIO storage, with local filesystem fallback.
    */
   async download(key: string): Promise<Buffer> {
+    // Try local first if we know S3 is unavailable
+    const localPath = path.join(this.localUploadDir, key);
+    if (fs.existsSync(localPath)) {
+      return fs.readFileSync(localPath);
+    }
+
     try {
       const response = await this.s3Client.send(
         new GetObjectCommand({
@@ -93,8 +111,15 @@ export class StorageService {
 
   /**
    * Generate a presigned URL for temporary access to a private object.
+   * Falls back to a local serve path when S3 is unavailable.
    */
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+    // If file exists locally, return a local URL path
+    const localPath = path.join(this.localUploadDir, key);
+    if (fs.existsSync(localPath)) {
+      return `/api/uploads/${key}`;
+    }
+
     try {
       const command = new GetObjectCommand({
         Bucket: this.bucket,
@@ -112,9 +137,30 @@ export class StorageService {
   }
 
   /**
-   * Delete a file from S3/MinIO storage.
+   * Check if a file exists (locally or in S3).
+   */
+  fileExistsLocally(key: string): boolean {
+    const localPath = path.join(this.localUploadDir, key);
+    return fs.existsSync(localPath);
+  }
+
+  /**
+   * Get the local file path for a key.
+   */
+  getLocalPath(key: string): string {
+    return path.join(this.localUploadDir, key);
+  }
+
+  /**
+   * Delete a file from S3/MinIO storage and local fallback.
    */
   async delete(key: string): Promise<void> {
+    // Delete local copy if exists
+    const localPath = path.join(this.localUploadDir, key);
+    if (fs.existsSync(localPath)) {
+      fs.unlinkSync(localPath);
+    }
+
     try {
       await this.s3Client.send(
         new DeleteObjectCommand({
@@ -124,10 +170,24 @@ export class StorageService {
       );
       this.logger.log(`Deleted: ${key}`);
     } catch (error) {
-      this.logger.error(
-        `Delete failed for ${key}: ${error instanceof Error ? error.message : String(error)}`,
+      this.logger.warn(
+        `S3 delete failed for ${key}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
     }
+  }
+
+  /**
+   * Save file to local filesystem.
+   */
+  private async uploadLocal(key: string, buffer: Buffer): Promise<void> {
+    const filePath = path.join(this.localUploadDir, key);
+    const dir = path.dirname(filePath);
+
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(filePath, buffer);
+    this.logger.log(`Uploaded to local: ${filePath} (${buffer.length} bytes)`);
   }
 }

@@ -14,6 +14,8 @@ import {
   RefreshTokenDto,
   SendOtpDto,
   VerifyOtpDto,
+  SendPhoneOtpDto,
+  VerifyPhoneOtpDto,
 } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -57,6 +59,18 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyOtp(dto);
+  }
+
+  @Post('phone/send-otp')
+  @HttpCode(HttpStatus.OK)
+  async sendPhoneOtp(@Body() dto: SendPhoneOtpDto) {
+    return this.authService.sendPhoneOtp(dto.phone);
+  }
+
+  @Post('phone/verify-otp')
+  @HttpCode(HttpStatus.OK)
+  async verifyPhoneOtp(@Body() dto: VerifyPhoneOtpDto) {
+    return this.authService.verifyPhoneOtp(dto.phone, dto.otp);
   }
 
   @Get('me')

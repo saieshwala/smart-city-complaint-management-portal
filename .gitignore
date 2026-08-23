@@ -46,3 +46,14 @@ infrastructure/minio-data/
 
 # Uploaded files
 uploads/
+
+# Uploads
+apps/api/uploads/
+apps/api/test_image.png
+
+# Python scripts & generated files
+*.py
+*.pptx
+
+# Claude memory
+.claude/

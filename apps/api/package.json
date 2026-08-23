@@ -5,9 +5,10 @@
   "description": "CivicConnect India - Backend API",
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
+    "build": "rimraf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "tsc -p tsconfig.build.json && node --watch dist/main.js",
+    "start:dev": "tsc -p tsconfig.build.json && node --watch dist/main.js",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "test": "jest",
@@ -42,6 +43,9 @@
     "compression": "^1.7.4",
     "reflect-metadata": "^0.2.1",
     "rxjs": "^7.8.1"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.0",

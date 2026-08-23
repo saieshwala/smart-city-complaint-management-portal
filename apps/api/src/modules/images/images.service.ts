@@ -119,7 +119,7 @@ export class ImagesService {
       ]);
 
       // Create database record
-      const image = await this.prisma.complaintImage.create({
+      const image: any = await this.prisma.complaintImage.create({
         data: {
           complaintId,
           storageKey,
@@ -153,6 +153,25 @@ export class ImagesService {
    */
   async getSignedUrl(storageKey: string): Promise<string> {
     return this.storageService.getSignedUrl(storageKey, 3600);
+  }
+
+  /**
+   * Get image file buffer for serving directly.
+   */
+  async getImageFile(
+    complaintId: string,
+    imageId: string,
+  ): Promise<{ buffer: Buffer; mimeType: string }> {
+    const image = await this.prisma.complaintImage.findFirst({
+      where: { id: imageId, complaintId },
+    });
+
+    if (!image) {
+      throw new NotFoundException('Image not found');
+    }
+
+    const buffer = await this.storageService.download(image.storageKey);
+    return { buffer, mimeType: image.mimeType };
   }
 
   /**

@@ -23,10 +23,10 @@ import apiClient from "@/lib/api-client";
 
 interface RoutingRule {
   id: string;
-  category: string;
-  department: string;
+  category: string | { id: string; name: string; [key: string]: any };
+  department: string | { id: string; name: string; [key: string]: any };
   priority: string;
-  autoAssign: boolean;
+  autoAssign?: boolean;
   isActive: boolean;
   createdAt: string;
 }
@@ -209,8 +209,14 @@ export default function RoutingPage() {
         apiClient.get("/routing/rules"),
         apiClient.get("/routing/sla"),
       ]);
-      if (rulesRes.status === "fulfilled") setRoutingRules(rulesRes.value.data);
-      if (slaRes.status === "fulfilled") setSlaRules(slaRes.value.data);
+      if (rulesRes.status === "fulfilled") {
+        const rules = rulesRes.value.data;
+        if (Array.isArray(rules)) setRoutingRules(rules);
+      }
+      if (slaRes.status === "fulfilled") {
+        const sla = slaRes.value.data;
+        if (Array.isArray(sla)) setSlaRules(sla);
+      }
     } catch {
       // Keep mock data on failure
     } finally {
@@ -233,10 +239,10 @@ export default function RoutingPage() {
   const openEditRule = (rule: RoutingRule) => {
     setEditingRule(rule);
     setRuleForm({
-      category: rule.category,
-      department: rule.department,
+      category: typeof rule.category === "object" ? rule.category.name : rule.category,
+      department: typeof rule.department === "object" ? rule.department.name : rule.department,
       priority: rule.priority,
-      autoAssign: rule.autoAssign,
+      autoAssign: rule.autoAssign ?? false,
     });
     setShowRuleForm(true);
   };
@@ -453,14 +459,14 @@ export default function RoutingPage() {
                     >
                       <td className="px-5 py-3">
                         <span className="text-sm font-medium text-slate-700">
-                          {rule.category}
+                          {typeof rule.category === "object" ? rule.category.name : rule.category}
                         </span>
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-1.5">
                           <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                           <span className="text-sm text-slate-700">
-                            {rule.department}
+                            {typeof rule.department === "object" ? rule.department.name : rule.department}
                           </span>
                         </div>
                       </td>

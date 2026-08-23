@@ -45,7 +45,7 @@ export class GeolocationService {
         throw new Error(`Nominatim responded with status ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: any = await response.json();
       const address = data.address || {};
 
       return {
@@ -62,7 +62,7 @@ export class GeolocationService {
         postalCode: address.postcode || null,
         formattedAddress: data.display_name || '',
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(
         `Reverse geocoding failed for (${lat}, ${lng}): ${error.message}. Returning mock data.`,
       );

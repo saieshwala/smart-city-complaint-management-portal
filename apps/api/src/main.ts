@@ -16,7 +16,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // CORS
-  const corsOrigins = configService.get<string>('CORS_ORIGINS', 'http://localhost:3000');
+  const corsOrigins = configService.get<string>('CORS_ORIGINS', 'http://localhost:3002,http://localhost:3003');
   app.enableCors({
     origin: corsOrigins.split(',').map((origin) => origin.trim()),
     credentials: true,
@@ -25,7 +25,9 @@ async function bootstrap() {
   });
 
   // Security
-  app.use(helmet());
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
 
   // Compression
   app.use(compression());
@@ -61,7 +63,7 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   // Start server
-  const port = configService.get<number>('PORT', 4000);
+  const port = configService.get<number>('API_PORT', 4001);
   await app.listen(port);
 
   logger.log(`Application is running on: http://localhost:${port}`);

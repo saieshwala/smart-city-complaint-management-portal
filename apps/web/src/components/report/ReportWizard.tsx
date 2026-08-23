@@ -141,12 +141,13 @@ export function ReportWizard() {
   const handleAiReject = () => {
     setAiAccepted(false);
     setSkipCategory(false);
-    // Pre-fill from AI if available
+    // Clear title/description so they get regenerated when the user picks a new category
+    setComplaintTitle("");
+    setComplaintDescription("");
+    setOriginalTitle("");
+    setOriginalDescription("");
+    // Keep AI severity as a reasonable default
     if (aiAnalysis) {
-      setComplaintTitle(aiAnalysis.generatedTitle);
-      setComplaintDescription(aiAnalysis.generatedDescription);
-      setOriginalTitle(aiAnalysis.generatedTitle);
-      setOriginalDescription(aiAnalysis.generatedDescription);
       setSeverity(aiAnalysis.severity);
     }
     setIsAiGenerated(false);
@@ -156,22 +157,38 @@ export function ReportWizard() {
   const handleCategorySelect = (category: string, subcategory: string) => {
     setSelectedCategory(category);
     setSelectedSubcategory(subcategory);
-    // Set default title if not already set
-    if (!complaintTitle) {
-      setComplaintTitle(`${subcategory} Issue`);
-      setOriginalTitle(`${subcategory} Issue`);
+
+    // Always regenerate title/description to match the selected category
+    const newTitle = `${subcategory} Issue — ${category}`;
+
+    // Build a description that incorporates AI evidence (what was seen in the image)
+    // but frames it under the newly chosen category
+    let newDescription: string;
+    if (aiAnalysis?.evidence?.length) {
+      const evidenceLines = aiAnalysis.evidence.map((e) => `• ${e}`).join("\n");
+      newDescription =
+        `Reporting a ${subcategory.toLowerCase()} issue under the ${category.toLowerCase()} category.\n\n` +
+        `Observations from the uploaded image:\n${evidenceLines}\n\n` +
+        `Please investigate and take appropriate action.`;
+    } else {
+      newDescription = `Reporting a ${subcategory.toLowerCase()} issue in the ${category.toLowerCase()} category. Please investigate and take appropriate action.`;
     }
-    if (!complaintDescription) {
-      const defaultDesc = `Reporting a ${subcategory.toLowerCase()} issue in the ${category.toLowerCase()} category. Please investigate and take appropriate action.`;
-      setComplaintDescription(defaultDesc);
-      setOriginalDescription(defaultDesc);
-    }
+
+    setComplaintTitle(newTitle);
+    setOriginalTitle(newTitle);
+    setComplaintDescription(newDescription);
+    setOriginalDescription(newDescription);
   };
 
   const handleRegenerate = () => {
-    if (aiAnalysis) {
+    if (aiAccepted && aiAnalysis) {
+      // AI was accepted — restore the AI's original text
       setComplaintTitle(aiAnalysis.generatedTitle);
       setComplaintDescription(aiAnalysis.generatedDescription);
+    } else {
+      // Category was manually changed — regenerate based on current category
+      setComplaintTitle(originalTitle);
+      setComplaintDescription(originalDescription);
     }
   };
 

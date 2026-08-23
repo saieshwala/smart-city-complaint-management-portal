@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   useReactTable,
@@ -34,15 +34,19 @@ import {
   Building,
   AlertTriangle,
   HelpCircle,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import StatusBadge, { type ComplaintStatus } from "@/components/StatusBadge";
 import PriorityBadge, { type Priority } from "@/components/PriorityBadge";
+import apiClient from "@/lib/api-client";
 
 // --- Types ---
 
 interface Complaint {
   id: string;
+  publicId: string;
   category: string;
   categoryIcon: string;
   priority: Priority;
@@ -51,7 +55,7 @@ interface Complaint {
   reportedAt: string;
   status: ComplaintStatus;
   assignedOfficer: string | null;
-  slaDeadline: string;
+  slaDeadline: string | null;
   description: string;
 }
 
@@ -59,208 +63,26 @@ interface Complaint {
 
 const categoryIcons: Record<string, React.ElementType> = {
   Roads: Construction,
+  "Waste Management": Trash2,
   Water: Droplets,
+  "Street Lighting": Zap,
   Electricity: Zap,
+  Sewerage: Droplets,
   Sanitation: Trash2,
   Parks: TreePine,
   Transport: Bus,
   Noise: Volume2,
+  "Public Infrastructure": Building,
   Building: Building,
+  Environment: TreePine,
   Safety: AlertTriangle,
   Other: HelpCircle,
 };
 
-// --- Mock data ---
-
-const mockComplaints: Complaint[] = [
-  {
-    id: "CIV-2026-000184",
-    category: "Roads",
-    categoryIcon: "Roads",
-    priority: "HIGH",
-    location: "FC Road, Shivajinagar",
-    fullAddress: "FC Road, Near Vaishali Hotel, Shivajinagar, Pune 411004",
-    reportedAt: "2026-08-15T14:30:00Z",
-    status: "SUBMITTED",
-    assignedOfficer: null,
-    slaDeadline: "2026-08-18T14:30:00Z",
-    description: "Large pothole on FC Road near Vaishali causing traffic issues",
-  },
-  {
-    id: "CIV-2026-000183",
-    category: "Water",
-    categoryIcon: "Water",
-    priority: "CRITICAL",
-    location: "Kothrud, Paud Road",
-    fullAddress: "Paud Road, Kothrud, Near Dahanukar Colony, Pune 411038",
-    reportedAt: "2026-08-15T10:15:00Z",
-    status: "ACCEPTED",
-    assignedOfficer: "Rajesh Kulkarni",
-    slaDeadline: "2026-08-16T10:15:00Z",
-    description: "Main water pipeline burst causing flooding",
-  },
-  {
-    id: "CIV-2026-000182",
-    category: "Electricity",
-    categoryIcon: "Electricity",
-    priority: "HIGH",
-    location: "Hadapsar, Magarpatta",
-    fullAddress: "Magarpatta City, Phase 2, Hadapsar, Pune 411028",
-    reportedAt: "2026-08-14T18:45:00Z",
-    status: "ASSIGNED",
-    assignedOfficer: "Priya Sharma",
-    slaDeadline: "2026-08-17T18:45:00Z",
-    description: "Streetlight out on main road for 3 days",
-  },
-  {
-    id: "CIV-2026-000181",
-    category: "Sanitation",
-    categoryIcon: "Sanitation",
-    priority: "MEDIUM",
-    location: "Aundh, ITI Road",
-    fullAddress: "ITI Road, Near Bremen Chowk, Aundh, Pune 411007",
-    reportedAt: "2026-08-14T09:20:00Z",
-    status: "IN_PROGRESS",
-    assignedOfficer: "Amit Deshmukh",
-    slaDeadline: "2026-08-19T09:20:00Z",
-    description: "Garbage not collected for 5 days in the area",
-  },
-  {
-    id: "CIV-2026-000180",
-    category: "Parks",
-    categoryIcon: "Parks",
-    priority: "LOW",
-    location: "Koregaon Park",
-    fullAddress: "Koregaon Park, Lane 6, Near Osho Ashram, Pune 411001",
-    reportedAt: "2026-08-13T16:00:00Z",
-    status: "RESOLVED",
-    assignedOfficer: "Sneha Patil",
-    slaDeadline: "2026-08-20T16:00:00Z",
-    description: "Broken bench in public garden",
-  },
-  {
-    id: "CIV-2026-000179",
-    category: "Transport",
-    categoryIcon: "Transport",
-    priority: "MEDIUM",
-    location: "Swargate, Pune Stn Rd",
-    fullAddress: "Pune Station Road, Near Swargate Bus Stand, Pune 411042",
-    reportedAt: "2026-08-13T11:30:00Z",
-    status: "ON_HOLD",
-    assignedOfficer: "Vikram Joshi",
-    slaDeadline: "2026-08-18T11:30:00Z",
-    description: "Bus stop shelter damaged and needs repair",
-  },
-  {
-    id: "CIV-2026-000178",
-    category: "Noise",
-    categoryIcon: "Noise",
-    priority: "LOW",
-    location: "Baner, Balewadi",
-    fullAddress: "Balewadi High Street, Near Phoenix Mall, Baner, Pune 411045",
-    reportedAt: "2026-08-12T22:15:00Z",
-    status: "REJECTED",
-    assignedOfficer: null,
-    slaDeadline: "2026-08-19T22:15:00Z",
-    description: "Excessive construction noise after 10 PM",
-  },
-  {
-    id: "CIV-2026-000177",
-    category: "Roads",
-    categoryIcon: "Roads",
-    priority: "CRITICAL",
-    location: "Hinjewadi Phase 1",
-    fullAddress: "Phase 1, Hinjewadi IT Park Road, Pune 411057",
-    reportedAt: "2026-08-12T08:00:00Z",
-    status: "ESCALATED",
-    assignedOfficer: "Rajesh Kulkarni",
-    slaDeadline: "2026-08-14T08:00:00Z",
-    description: "Road caved in near IT park entrance, dangerous for traffic",
-  },
-  {
-    id: "CIV-2026-000176",
-    category: "Water",
-    categoryIcon: "Water",
-    priority: "HIGH",
-    location: "Wakad, Datta Mandir",
-    fullAddress: "Near Datta Mandir Chowk, Wakad, Pune 411057",
-    reportedAt: "2026-08-11T15:45:00Z",
-    status: "INFO_REQUESTED",
-    assignedOfficer: "Priya Sharma",
-    slaDeadline: "2026-08-16T15:45:00Z",
-    description: "Sewage overflow onto main road",
-  },
-  {
-    id: "CIV-2026-000175",
-    category: "Electricity",
-    categoryIcon: "Electricity",
-    priority: "MEDIUM",
-    location: "Viman Nagar",
-    fullAddress: "Viman Nagar Main Road, Near Phoenix Marketcity, Pune 411014",
-    reportedAt: "2026-08-11T12:00:00Z",
-    status: "CLOSED",
-    assignedOfficer: "Amit Deshmukh",
-    slaDeadline: "2026-08-18T12:00:00Z",
-    description: "Exposed electrical wires on utility pole",
-  },
-  {
-    id: "CIV-2026-000174",
-    category: "Building",
-    categoryIcon: "Building",
-    priority: "HIGH",
-    location: "Deccan Gymkhana",
-    fullAddress: "JM Road, Deccan Gymkhana, Near Garware Bridge, Pune 411004",
-    reportedAt: "2026-08-10T09:30:00Z",
-    status: "DUPLICATE",
-    assignedOfficer: null,
-    slaDeadline: "2026-08-17T09:30:00Z",
-    description: "Unauthorized construction in residential zone",
-  },
-  {
-    id: "CIV-2026-000173",
-    category: "Safety",
-    categoryIcon: "Safety",
-    priority: "CRITICAL",
-    location: "Katraj, Satara Road",
-    fullAddress: "Satara Road, Near Katraj Dairy, Pune 411046",
-    reportedAt: "2026-08-10T07:00:00Z",
-    status: "IN_PROGRESS",
-    assignedOfficer: "Vikram Joshi",
-    slaDeadline: "2026-08-12T07:00:00Z",
-    description: "Missing manhole cover on busy pedestrian path",
-  },
-  {
-    id: "CIV-2026-000172",
-    category: "Sanitation",
-    categoryIcon: "Sanitation",
-    priority: "MEDIUM",
-    location: "Karve Nagar",
-    fullAddress: "Karve Nagar, Near Warje Bridge, Pune 411052",
-    reportedAt: "2026-08-09T14:20:00Z",
-    status: "ASSIGNED",
-    assignedOfficer: "Sneha Patil",
-    slaDeadline: "2026-08-16T14:20:00Z",
-    description: "Public dustbins overflowing for over a week",
-  },
-  {
-    id: "CIV-2026-000171",
-    category: "Roads",
-    categoryIcon: "Roads",
-    priority: "LOW",
-    location: "Nigdi, Pradhikaran",
-    fullAddress: "Pradhikaran, Sector 25, Nigdi, Pune 411044",
-    reportedAt: "2026-08-09T10:00:00Z",
-    status: "SUBMITTED",
-    assignedOfficer: null,
-    slaDeadline: "2026-08-16T10:00:00Z",
-    description: "Faded road markings at major intersection",
-  },
-];
-
 // --- Helpers ---
 
 function getRelativeTime(dateStr: string): string {
-  const now = new Date("2026-08-16T12:00:00Z");
+  const now = new Date();
   const date = new Date(dateStr);
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -273,8 +95,10 @@ function getRelativeTime(dateStr: string): string {
   return `${diffDays} days ago`;
 }
 
-function getSlaStatus(deadline: string): { text: string; isOverdue: boolean; urgency: string } {
-  const now = new Date("2026-08-16T12:00:00Z");
+function getSlaStatus(deadline: string | null): { text: string; isOverdue: boolean; urgency: string } {
+  if (!deadline) return { text: "No SLA", isOverdue: false, urgency: "ok" };
+
+  const now = new Date();
   const sla = new Date(deadline);
   const diffMs = sla.getTime() - now.getTime();
 
@@ -297,6 +121,31 @@ function getSlaStatus(deadline: string): { text: string; isOverdue: boolean; urg
   return { text: `${daysLeft}d left`, isOverdue: false, urgency: "ok" };
 }
 
+function shortenAddress(address: string | null): string {
+  if (!address) return "Unknown";
+  // Take the first two comma-separated parts
+  const parts = address.split(",").map((p) => p.trim());
+  return parts.slice(0, 2).join(", ");
+}
+
+function mapApiComplaint(item: any): Complaint {
+  const catName = item.category?.name || "Other";
+  return {
+    id: item.id,
+    publicId: item.publicId,
+    category: catName,
+    categoryIcon: catName,
+    priority: item.priority || "MEDIUM",
+    location: shortenAddress(item.address),
+    fullAddress: item.address || "",
+    reportedAt: item.reportedAt || item.createdAt,
+    status: item.status,
+    assignedOfficer: item.assignedOfficer?.name || null,
+    slaDeadline: item.expectedResolutionAt || null,
+    description: item.description || "",
+  };
+}
+
 // --- Columns ---
 
 const columnHelper = createColumnHelper<Complaint>();
@@ -304,13 +153,12 @@ const columnHelper = createColumnHelper<Complaint>();
 const categories = [
   "Roads",
   "Water",
-  "Electricity",
-  "Sanitation",
-  "Parks",
-  "Transport",
-  "Noise",
-  "Building",
-  "Safety",
+  "Waste Management",
+  "Street Lighting",
+  "Sewerage",
+  "Traffic",
+  "Public Infrastructure",
+  "Environment",
   "Other",
 ];
 
@@ -345,6 +193,10 @@ const statusLabels: Record<ComplaintStatus, string> = {
 };
 
 export default function ComplaintsPage() {
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -354,8 +206,36 @@ export default function ComplaintsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
+  const fetchComplaints = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiClient.get("/admin/complaints", {
+        params: { limit: 200 },
+      });
+      const data = res.data;
+      // Handle different response shapes from the TransformInterceptor
+      const items = Array.isArray(data)
+        ? data
+        : data?.items || data?.data || [];
+      setComplaints(items.map(mapApiComplaint));
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to load complaints";
+      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchComplaints();
+  }, []);
+
   const filteredData = useMemo(() => {
-    let data = mockComplaints;
+    let data = complaints;
 
     if (categoryFilter) {
       data = data.filter((c) => c.category === categoryFilter);
@@ -379,18 +259,18 @@ export default function ComplaintsPage() {
       const q = globalFilter.toLowerCase();
       data = data.filter(
         (c) =>
-          c.id.toLowerCase().includes(q) ||
+          c.publicId.toLowerCase().includes(q) ||
           c.fullAddress.toLowerCase().includes(q) ||
           c.description.toLowerCase().includes(q)
       );
     }
 
     return data;
-  }, [categoryFilter, statusFilter, priorityFilter, dateFrom, dateTo, globalFilter]);
+  }, [complaints, categoryFilter, statusFilter, priorityFilter, dateFrom, dateTo, globalFilter]);
 
   const columns = useMemo(
     () => [
-      columnHelper.accessor("id", {
+      columnHelper.accessor("publicId", {
         header: ({ column }) => (
           <button
             className="flex items-center gap-1 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-700"
@@ -511,7 +391,7 @@ export default function ComplaintsPage() {
         header: "Actions",
         cell: (info) => (
           <Link
-            href={`/dashboard/complaints/${encodeURIComponent(info.row.original.id)}`}
+            href={`/dashboard/complaints/${info.row.original.id}`}
             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 border border-primary-200 rounded-md hover:bg-primary-100 transition-colors"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -561,10 +441,37 @@ export default function ComplaintsPage() {
             Manage and process citizen complaints
           </p>
         </div>
-        <div className="text-sm text-slate-500">
-          {filteredData.length} complaint{filteredData.length !== 1 ? "s" : ""} found
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchComplaints}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+            Refresh
+          </button>
+          <div className="text-sm text-slate-500">
+            {filteredData.length} complaint{filteredData.length !== 1 ? "s" : ""} found
+          </div>
         </div>
       </div>
+
+      {/* Error state */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-red-800">Failed to load complaints</p>
+            <p className="text-sm text-red-700 mt-0.5">{error}</p>
+          </div>
+          <button
+            onClick={fetchComplaints}
+            className="ml-auto text-sm font-medium text-red-600 hover:text-red-800"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -659,111 +566,123 @@ export default function ComplaintsPage() {
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id} className="border-b border-slate-200 bg-slate-50/50">
-                  {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3"
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {table.getRowModel().rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={columns.length}
-                    className="px-4 py-12 text-center text-sm text-slate-500"
-                  >
-                    No complaints found matching your filters.
-                  </td>
-                </tr>
-              ) : (
-                table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="hover:bg-slate-50/50 transition-colors"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50 gap-3">
-          <p className="text-xs text-slate-500">
-            Showing{" "}
-            {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}-
-            {Math.min(
-              (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-              filteredData.length
-            )}{" "}
-            of {filteredData.length} complaints
-          </p>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
-              className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-md border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronsLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-md border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            {Array.from({ length: table.getPageCount() }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => table.setPageIndex(i)}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md border transition-colors",
-                  table.getState().pagination.pageIndex === i
-                    ? "bg-primary-600 text-white border-primary-600"
-                    : "text-slate-600 bg-white border-slate-200 hover:bg-slate-50"
-                )}
-              >
-                {i + 1}
-              </button>
-            ))}
-
-            <button
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-md border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
-              className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-md border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronsRight className="w-4 h-4" />
-            </button>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+            <p className="text-sm text-slate-500">Loading complaints...</p>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id} className="border-b border-slate-200 bg-slate-50/50">
+                      {headerGroup.headers.map((header) => (
+                        <th
+                          key={header.id}
+                          className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3"
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {table.getRowModel().rows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={columns.length}
+                        className="px-4 py-12 text-center text-sm text-slate-500"
+                      >
+                        No complaints found matching your filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    table.getRowModel().rows.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="hover:bg-slate-50/50 transition-colors"
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="px-4 py-3">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50 gap-3">
+              <p className="text-xs text-slate-500">
+                Showing{" "}
+                {filteredData.length === 0
+                  ? 0
+                  : table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
+                -
+                {Math.min(
+                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                  filteredData.length
+                )}{" "}
+                of {filteredData.length} complaints
+              </p>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => table.setPageIndex(0)}
+                  disabled={!table.getCanPreviousPage()}
+                  className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-md border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronsLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                  className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-md border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {Array.from({ length: table.getPageCount() }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => table.setPageIndex(i)}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-md border transition-colors",
+                      table.getState().pagination.pageIndex === i
+                        ? "bg-primary-600 text-white border-primary-600"
+                        : "text-slate-600 bg-white border-slate-200 hover:bg-slate-50"
+                    )}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                  className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-md border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                  disabled={!table.getCanNextPage()}
+                  className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-md border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronsRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

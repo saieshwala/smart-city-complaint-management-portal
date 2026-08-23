@@ -4,7 +4,7 @@ import { Footer } from "@/components/layout/Footer";
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col pt-16">
       <Navbar />
       <main className="flex-1 bg-white">
         <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">

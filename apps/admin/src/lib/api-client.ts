@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4001/api";
 const TOKEN_KEY = "civicconnect_admin_token";
 
 const apiClient = axios.create({
@@ -26,9 +26,16 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle auth errors
+// Response interceptor: unwrap API { data: ... } envelope and handle auth errors
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // The API wraps responses in { data: ... } via TransformInterceptor.
+    // Unwrap so consumers get the inner payload directly on response.data.
+    if (response.data && typeof response.data === "object" && "data" in response.data && Object.keys(response.data).length === 1) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       if (typeof window !== "undefined") {

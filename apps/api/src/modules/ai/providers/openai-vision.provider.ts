@@ -99,7 +99,7 @@ If you cannot classify the image, return:
         throw new Error(`OpenAI API returned ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: any = await response.json();
       const content = data.choices?.[0]?.message?.content;
 
       if (!content) {
@@ -182,7 +182,7 @@ Date: ${timestamp.toISOString().split('T')[0]}`;
         throw new Error(`OpenAI API returned ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: any = await response.json();
       const content = data.choices?.[0]?.message?.content;
 
       if (!content) {

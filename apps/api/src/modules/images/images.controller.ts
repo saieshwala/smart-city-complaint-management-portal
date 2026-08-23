@@ -1,15 +1,19 @@
 import {
   Controller,
   Post,
+  Get,
   Param,
+  Res,
   UseInterceptors,
   UploadedFiles,
   ParseUUIDPipe,
   UseGuards,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { Response } from 'express';
 import { ImagesService } from './images.service';
 
 @ApiTags('images')
@@ -57,5 +61,24 @@ export class ImagesController {
       message: `${images.length} image(s) uploaded successfully`,
       data: images,
     };
+  }
+
+  @Get(':imageId')
+  async getImage(
+    @Param('id', ParseUUIDPipe) complaintId: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+    @Res() res: Response,
+  ) {
+    const { buffer, mimeType } = await this.imagesService.getImageFile(
+      complaintId,
+      imageId,
+    );
+
+    res.set({
+      'Content-Type': mimeType,
+      'Content-Length': buffer.length.toString(),
+      'Cache-Control': 'public, max-age=3600',
+    });
+    res.send(buffer);
   }
 }

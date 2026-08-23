@@ -201,6 +201,59 @@ export class AuthService {
     return { message: 'OTP verified successfully', verified: true };
   }
 
+  // ---------------------------------------------------------------------------
+  // Phone OTP Login (dev: hardcoded OTP 4141)
+  // ---------------------------------------------------------------------------
+
+  async sendPhoneOtp(phone: string) {
+    // Normalize phone number
+    const normalizedPhone = phone.replace(/\s+/g, '');
+
+    // In development, we use a hardcoded OTP (4141)
+    this.logger.log(`[DEV] Phone OTP for ${normalizedPhone}: 4141`);
+
+    return { message: 'OTP sent to your phone number' };
+  }
+
+  async verifyPhoneOtp(phone: string, otp: string) {
+    const normalizedPhone = phone.replace(/\s+/g, '');
+
+    // Dev mode: accept hardcoded OTP 4141
+    if (otp !== '4141') {
+      throw new BadRequestException('Invalid OTP code');
+    }
+
+    // Find or create user by phone
+    let user = await this.prisma.user.findFirst({
+      where: { phone: normalizedPhone },
+    });
+
+    if (!user) {
+      // Auto-register user with phone number
+      user = await this.prisma.user.create({
+        data: {
+          name: `User ${normalizedPhone.slice(-4)}`,
+          email: `${normalizedPhone}@phone.civicconnect.in`,
+          phone: normalizedPhone,
+          phoneVerified: true,
+        },
+      });
+      this.logger.log(`New user auto-registered via phone OTP: ${normalizedPhone}`);
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is inactive');
+    }
+
+    const tokens = await this.generateTokens(user.id, user.email);
+    const { passwordHash, ...userData } = user as any;
+
+    return {
+      ...tokens,
+      user: userData,
+    };
+  }
+
   async adminLogin(dto: LoginDto) {
     const admin = await this.prisma.adminUser.findUnique({
       where: { email: dto.email },
@@ -228,6 +281,16 @@ export class AuthService {
       where: { id: admin.id },
       data: { lastLoginAt: new Date() },
     });
+
+    // Log admin login to audit trail
+    await this.prisma.auditLog.create({
+      data: {
+        adminId: admin.id,
+        action: 'LOGIN',
+        entityType: 'Session',
+        entityId: admin.id,
+      },
+    }).catch(() => {});
 
     const tokens = await this.adminGenerateTokens(
       admin.id,

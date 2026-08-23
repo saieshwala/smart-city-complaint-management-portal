@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, MapPin, Filter } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 import { StatusBadge } from "@/components/complaints/StatusBadge";
 import apiClient from "@/lib/api-client";
 
@@ -44,11 +43,11 @@ export default function MapPage() {
     : complaints;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col pt-16">
       <Navbar />
-      <main className="flex-1 flex flex-col lg:flex-row">
+      <main className="flex-1 flex flex-col lg:flex-row" style={{ minHeight: "calc(100vh - 4rem)" }}>
         {/* Map Area */}
-        <div className="flex-1 relative bg-gray-100">
+        <div className="flex-1 relative bg-gray-100 min-h-[50vh] lg:min-h-0">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
               <MapPin className="mx-auto h-16 w-16 text-gray-300" />
@@ -129,7 +128,6 @@ export default function MapPage() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 }

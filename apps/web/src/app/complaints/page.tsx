@@ -30,18 +30,23 @@ export default function ComplaintsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (authLoading) return;
+    if (!isAuthenticated) {
       router.push("/login");
+      return;
     }
-  }, [authLoading, isAuthenticated, router]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
 
     const fetchComplaints = async () => {
       try {
         const res = await apiClient.get("/complaints");
-        setComplaints(res.data.data?.items || res.data.items || []);
+        const data = res.data;
+        // Handle different response shapes from TransformInterceptor
+        const items = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+          ? data.data
+          : data?.items || [];
+        setComplaints(items);
       } catch {
         setError("Failed to load complaints");
       } finally {
@@ -50,7 +55,7 @@ export default function ComplaintsPage() {
     };
 
     fetchComplaints();
-  }, [isAuthenticated]);
+  }, [authLoading, isAuthenticated, router]);
 
   if (authLoading) {
     return (
@@ -61,7 +66,7 @@ export default function ComplaintsPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col pt-16">
       <Navbar />
       <main className="flex-1 bg-gray-50">
         <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">

@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -29,8 +30,9 @@ export class ComplaintsService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Optional()
     @InjectQueue('complaint-submission')
-    private readonly submissionQueue: Queue,
+    private readonly submissionQueue?: Queue,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -75,6 +77,7 @@ export class ComplaintsService {
           longitude: dto.longitude,
           address: dto.address,
           locationSource: dto.locationSource,
+          ...(dto.severity ? { severity: dto.severity } : {}),
           reportedAt: new Date(dto.reportedAt),
           status: ComplaintStatus.DRAFT,
         },
@@ -255,16 +258,21 @@ export class ComplaintsService {
     });
 
     // Queue the submission job for async processing
-    await this.submissionQueue.add('process-submission', {
-      complaintId: id,
-      publicId: updatedComplaint.publicId,
-      authorityId: routing.authorityId,
-      departmentId: routing.departmentId,
-    });
-
-    this.logger.log(
-      `Complaint ${updatedComplaint.publicId} submitted and queued for processing`,
-    );
+    if (this.submissionQueue) {
+      await this.submissionQueue.add('process-submission', {
+        complaintId: id,
+        publicId: updatedComplaint.publicId,
+        authorityId: routing.authorityId,
+        departmentId: routing.departmentId,
+      });
+      this.logger.log(
+        `Complaint ${updatedComplaint.publicId} submitted and queued for processing`,
+      );
+    } else {
+      this.logger.warn(
+        `Complaint ${updatedComplaint.publicId} submitted but Redis queue is unavailable — skipping async processing`,
+      );
+    }
 
     return updatedComplaint;
   }

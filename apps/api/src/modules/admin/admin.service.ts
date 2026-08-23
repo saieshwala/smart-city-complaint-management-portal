@@ -6,12 +6,16 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ComplaintStatus } from '@prisma/client';
+import { AuditLogService } from './audit-log.service';
 
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async getAllComplaints(filters: {
     status?: string;
@@ -160,6 +164,16 @@ export class AdminService {
         },
       });
 
+      await this.auditLogService.create({
+        adminId,
+        action: 'STATUS_CHANGE',
+        entityType: 'Complaint',
+        entityId: id,
+        complaintId: id,
+        oldValues: { status: complaint.status },
+        newValues: { status: newStatus, reason },
+      });
+
       return updated;
     });
   }
@@ -195,6 +209,16 @@ export class AdminService {
         },
       });
 
+      await this.auditLogService.create({
+        adminId,
+        action: 'ASSIGNMENT',
+        entityType: 'Complaint',
+        entityId: id,
+        complaintId: id,
+        oldValues: { assignedOfficerId: complaint.assignedOfficerId },
+        newValues: { assignedOfficerId: officerId, officerName: officer.name },
+      });
+
       return updated;
     });
   }
@@ -205,7 +229,7 @@ export class AdminService {
     });
     if (!complaint) throw new NotFoundException(`Complaint ${complaintId} not found`);
 
-    return this.prisma.adminNote.create({
+    const created = await this.prisma.adminNote.create({
       data: {
         complaintId,
         adminId,
@@ -214,6 +238,44 @@ export class AdminService {
       include: {
         admin: { select: { id: true, name: true } },
       },
+    });
+
+    await this.auditLogService.create({
+      adminId,
+      action: 'COMMENT',
+      entityType: 'Complaint',
+      entityId: complaintId,
+      complaintId,
+      newValues: { note },
+    });
+
+    return created;
+  }
+
+  async getDepartments() {
+    return this.prisma.department.findMany({
+      include: {
+        authority: { select: { id: true, name: true } },
+        _count: { select: { complaints: true, routingRules: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async getOfficers() {
+    return this.prisma.adminUser.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        lastLoginAt: true,
+        department: { select: { name: true } },
+        authority: { select: { name: true } },
+        _count: { select: { assignedComplaints: true } },
+      },
+      orderBy: { name: 'asc' },
     });
   }
 

@@ -213,19 +213,23 @@ async function main() {
 
   for (const [catSlug, deptSlug] of Object.entries(routingMap)) {
     if (categoryMap[catSlug] && createdDepartments[deptSlug]) {
-      await prisma.routingRule.upsert({
+      // Check if a routing rule already exists for this category
+      const existing = await prisma.routingRule.findFirst({
         where: {
-          id: `00000000-0000-0000-0000-${catSlug.substring(0, 12).padEnd(12, '0')}`,
-        },
-        update: {},
-        create: {
-          id: `00000000-0000-0000-0000-${catSlug.substring(0, 12).padEnd(12, '0')}`,
           authorityId: authority.id,
           categoryId: categoryMap[catSlug],
-          departmentId: createdDepartments[deptSlug],
-          priority: Priority.MEDIUM,
         },
       });
+      if (!existing) {
+        await prisma.routingRule.create({
+          data: {
+            authorityId: authority.id,
+            categoryId: categoryMap[catSlug],
+            departmentId: createdDepartments[deptSlug],
+            priority: Priority.MEDIUM,
+          },
+        });
+      }
     }
   }
 
@@ -269,8 +273,8 @@ async function main() {
   const passwordHash = await bcrypt.hash('admin123', 10);
 
   const adminUsers = [
+    // Super & Authority admins
     {
-      id: '00000000-0000-0000-0000-admin0000001',
       name: 'Super Admin (DEV)',
       email: 'superadmin@dev.civicconnect.in',
       role: AdminRole.SUPER_ADMIN,
@@ -278,34 +282,166 @@ async function main() {
       departmentId: null,
     },
     {
-      id: '00000000-0000-0000-0000-admin0000002',
       name: 'Authority Admin (DEV)',
       email: 'authorityadmin@dev.civicconnect.in',
       role: AdminRole.AUTHORITY_ADMIN,
       authorityId: authority.id,
       departmentId: null,
     },
+    // Department Admins — one per department
     {
-      id: '00000000-0000-0000-0000-admin0000003',
-      name: 'Department Admin (DEV)',
-      email: 'deptadmin@dev.civicconnect.in',
+      name: 'Rajesh Kumar',
+      email: 'rajesh.kumar@dev.civicconnect.in',
       role: AdminRole.DEPARTMENT_ADMIN,
       authorityId: authority.id,
       departmentId: createdDepartments['solid_waste_management'],
     },
     {
-      id: '00000000-0000-0000-0000-admin0000004',
-      name: 'Officer (DEV)',
-      email: 'officer@dev.civicconnect.in',
+      name: 'Priya Singh',
+      email: 'priya.singh@dev.civicconnect.in',
+      role: AdminRole.DEPARTMENT_ADMIN,
+      authorityId: authority.id,
+      departmentId: createdDepartments['roads_department'],
+    },
+    {
+      name: 'Amit Patel',
+      email: 'amit.patel@dev.civicconnect.in',
+      role: AdminRole.DEPARTMENT_ADMIN,
+      authorityId: authority.id,
+      departmentId: createdDepartments['traffic_management'],
+    },
+    {
+      name: 'Sneha Reddy',
+      email: 'sneha.reddy@dev.civicconnect.in',
+      role: AdminRole.DEPARTMENT_ADMIN,
+      authorityId: authority.id,
+      departmentId: createdDepartments['water_supply'],
+    },
+    {
+      name: 'Vikram Sharma',
+      email: 'vikram.sharma@dev.civicconnect.in',
+      role: AdminRole.DEPARTMENT_ADMIN,
+      authorityId: authority.id,
+      departmentId: createdDepartments['sewerage'],
+    },
+    {
+      name: 'Anita Deshmukh',
+      email: 'anita.deshmukh@dev.civicconnect.in',
+      role: AdminRole.DEPARTMENT_ADMIN,
+      authorityId: authority.id,
+      departmentId: createdDepartments['street_lighting'],
+    },
+    {
+      name: 'Suresh Jadhav',
+      email: 'suresh.jadhav@dev.civicconnect.in',
+      role: AdminRole.DEPARTMENT_ADMIN,
+      authorityId: authority.id,
+      departmentId: createdDepartments['public_works'],
+    },
+    // Officers — two per department
+    {
+      name: 'Manoj Kulkarni',
+      email: 'manoj.kulkarni@dev.civicconnect.in',
       role: AdminRole.OFFICER,
       authorityId: authority.id,
       departmentId: createdDepartments['solid_waste_management'],
+    },
+    {
+      name: 'Pooja Bhosale',
+      email: 'pooja.bhosale@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['solid_waste_management'],
+    },
+    {
+      name: 'Rohit Patil',
+      email: 'rohit.patil@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['roads_department'],
+    },
+    {
+      name: 'Kavita Joshi',
+      email: 'kavita.joshi@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['roads_department'],
+    },
+    {
+      name: 'Deepak Gaikwad',
+      email: 'deepak.gaikwad@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['traffic_management'],
+    },
+    {
+      name: 'Nisha Thakur',
+      email: 'nisha.thakur@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['traffic_management'],
+    },
+    {
+      name: 'Sanjay More',
+      email: 'sanjay.more@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['water_supply'],
+    },
+    {
+      name: 'Meena Shinde',
+      email: 'meena.shinde@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['water_supply'],
+    },
+    {
+      name: 'Arun Kale',
+      email: 'arun.kale@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['sewerage'],
+    },
+    {
+      name: 'Sunita Pawar',
+      email: 'sunita.pawar@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['sewerage'],
+    },
+    {
+      name: 'Ganesh Mane',
+      email: 'ganesh.mane@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['street_lighting'],
+    },
+    {
+      name: 'Rashmi Deshpande',
+      email: 'rashmi.deshpande@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['street_lighting'],
+    },
+    {
+      name: 'Prakash Sawant',
+      email: 'prakash.sawant@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['public_works'],
+    },
+    {
+      name: 'Aarti Kamble',
+      email: 'aarti.kamble@dev.civicconnect.in',
+      role: AdminRole.OFFICER,
+      authorityId: authority.id,
+      departmentId: createdDepartments['public_works'],
     },
   ];
 
   for (const admin of adminUsers) {
     await prisma.adminUser.upsert({
-      where: { id: admin.id },
+      where: { email: admin.email },
       update: {},
       create: {
         ...admin,

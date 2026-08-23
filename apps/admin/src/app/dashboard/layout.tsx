@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { removeAdminToken } from "@/lib/api-client";
 import {
   LayoutDashboard,
   List,
@@ -79,6 +80,18 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [adminName, setAdminName] = useState("Admin Officer");
+  const [adminEmail, setAdminEmail] = useState("admin@civic.gov.in");
+
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("civicconnect_admin_user") || "null");
+      if (user) {
+        setAdminName(user.name || user.fullName || "Admin Officer");
+        setAdminEmail(user.email || "admin@civic.gov.in");
+      }
+    } catch {}
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -154,10 +167,10 @@ export default function DashboardLayout({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">
-                Admin Officer
+                {adminName}
               </p>
               <p className="text-xs text-slate-400 truncate">
-                admin@civic.gov.in
+                {adminEmail}
               </p>
             </div>
           </div>
@@ -183,10 +196,14 @@ export default function DashboardLayout({
 
             <div className="flex items-center gap-3">
               {/* Notifications */}
-              <button className="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+              <Link
+                href="/dashboard/audit-logs"
+                className="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                title="View audit logs & notifications"
+              >
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
+              </Link>
 
               {/* User menu */}
               <div className="relative">
@@ -198,7 +215,7 @@ export default function DashboardLayout({
                     <User className="w-4 h-4 text-primary-600" />
                   </div>
                   <span className="hidden sm:block text-sm font-medium text-slate-700">
-                    Admin Officer
+                    {adminName}
                   </span>
                   <ChevronDown className="w-4 h-4 text-slate-400" />
                 </button>
@@ -230,7 +247,8 @@ export default function DashboardLayout({
                       <button
                         onClick={() => {
                           setUserMenuOpen(false);
-                          // TODO: Implement logout
+                          removeAdminToken();
+                          localStorage.removeItem("civicconnect_admin_user");
                           window.location.href = "/";
                         }}
                         className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"

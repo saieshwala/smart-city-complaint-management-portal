@@ -24,8 +24,7 @@ export class MetadataExtractorService {
         gps: true,
         tiff: true,
         exif: true,
-        ifd0: true,
-      });
+      } as any);
 
       if (!exif) {
         this.logger.log('No EXIF data found in image');

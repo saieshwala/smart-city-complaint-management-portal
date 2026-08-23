@@ -28,7 +28,7 @@ export default function TrackPage() {
     setSearched(true);
 
     try {
-      const res = await apiClient.get(`/complaints/track/${publicId.trim()}`);
+      const res = await apiClient.get(`/public/complaints/${publicId.trim()}`);
       setComplaint(res.data.data || res.data);
     } catch (err: any) {
       if (err?.response?.status === 404) {
@@ -42,7 +42,7 @@ export default function TrackPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col pt-16">
       <Navbar />
       <main className="flex-1 bg-gray-50">
         <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">

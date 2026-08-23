@@ -27,6 +27,8 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
+  loginWithOtp: (phone: string, otp: string) => Promise<void>;
+  sendPhoneOtp: (phone: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   getToken: () => string | null;
@@ -96,7 +98,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await apiClient.post("/auth/login", { email, password });
-    const { token, user } = res.data.data || res.data;
+    const data = res.data.data || res.data;
+    const token = data.accessToken || data.token;
+    const user = data.user;
+
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+    setState({
+      user,
+      token,
+      isAuthenticated: true,
+      isLoading: false,
+    });
+  }, []);
+
+  const sendPhoneOtp = useCallback(async (phone: string) => {
+    await apiClient.post("/auth/phone/send-otp", { phone });
+  }, []);
+
+  const loginWithOtp = useCallback(async (phone: string, otp: string) => {
+    const res = await apiClient.post("/auth/phone/verify-otp", { phone, otp });
+    const data = res.data.data || res.data;
+    const token = data.accessToken || data.token;
+    const user = data.user;
 
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -136,11 +161,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ...state,
       login,
+      loginWithOtp,
+      sendPhoneOtp,
       register,
       logout,
       getToken,
     }),
-    [state, login, register, logout, getToken]
+    [state, login, loginWithOtp, sendPhoneOtp, register, logout, getToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

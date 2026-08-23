@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4001/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -24,9 +24,14 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor: handle common errors
+// Response interceptor: unwrap API { data: ... } envelope and handle common errors
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.data && typeof response.data === "object" && "data" in response.data && Object.keys(response.data).length === 1) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
   (error: AxiosError) => {
     if (error.response) {
       switch (error.response.status) {

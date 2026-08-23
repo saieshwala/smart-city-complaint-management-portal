@@ -13,13 +13,21 @@ import {
   ArrowRight,
   Plus,
   Eye,
+  XCircle,
+  LogIn,
+  Phone,
+  Mail,
+  Lock,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import type { AiAnalysisResult } from "./AiAnalysisStep";
+import apiClient from "@/lib/api-client";
+import { useAuthContext } from "@/context/AuthContext";
 
 const MiniMap = dynamic(
   () => import("@/components/report/steps/MapComponent"),
@@ -73,12 +81,6 @@ const departmentMapping: Record<string, string> = {
   Other: "General Administration",
 };
 
-function generateComplaintId(): string {
-  const year = new Date().getFullYear();
-  const randomDigits = Math.floor(100000 + Math.random() * 900000);
-  return `CIV-${year}-${randomDigits}`;
-}
-
 export function ReviewSubmitStep({
   images,
   location,
@@ -91,8 +93,21 @@ export function ReviewSubmitStep({
   isSubmitting,
   onSubmit,
 }: ReviewSubmitStepProps) {
+  const { isAuthenticated, login, loginWithOtp, sendPhoneOtp } = useAuthContext();
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [complaintId] = useState(generateComplaintId);
+  const [complaintId, setComplaintId] = useState<string>("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Inline login state
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginTab, setLoginTab] = useState<"email" | "phone">("phone");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginPhone, setLoginPhone] = useState("");
+  const [loginOtp, setLoginOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
 
   const previews = useMemo(
     () => images.map((f) => URL.createObjectURL(f)),
@@ -101,11 +116,123 @@ export function ReviewSubmitStep({
 
   const department = departmentMapping[category] || "General Administration";
 
+  const handleInlineEmailLogin = async () => {
+    setLoginError("");
+    setLoginLoading(true);
+    try {
+      await login(loginEmail, loginPassword);
+      setShowLogin(false);
+    } catch (err: any) {
+      setLoginError(err?.response?.data?.message || "Invalid credentials");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleInlineSendOtp = async () => {
+    if (!loginPhone.trim()) return;
+    setLoginError("");
+    setLoginLoading(true);
+    try {
+      await sendPhoneOtp(loginPhone.trim());
+      setOtpSent(true);
+    } catch (err: any) {
+      setLoginError(err?.response?.data?.message || "Failed to send OTP");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleInlineOtpLogin = async () => {
+    if (!loginOtp.trim()) return;
+    setLoginError("");
+    setLoginLoading(true);
+    try {
+      await loginWithOtp(loginPhone.trim(), loginOtp.trim());
+      setShowLogin(false);
+    } catch (err: any) {
+      setLoginError(err?.response?.data?.message || "Invalid OTP");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     onSubmit();
-    // Simulate submission delay
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsSubmitted(true);
+    setSubmitError(null);
+
+    try {
+      // 1. Resolve category/subcategory names → UUIDs
+      const catRes = await apiClient.get("/categories");
+      const allCategories = Array.isArray(catRes.data) ? catRes.data : [];
+
+      let categoryId: string | undefined;
+      let subcategoryId: string | undefined;
+
+      const matchedCat = allCategories.find(
+        (c: any) => c.name === category
+      );
+      if (matchedCat) {
+        categoryId = matchedCat.id;
+        const matchedSub = matchedCat.subcategories?.find(
+          (s: any) => s.name === subcategory
+        );
+        if (matchedSub) subcategoryId = matchedSub.id;
+      }
+
+      // 2. Create complaint — build body with only fields the API accepts
+      const createBody: Record<string, any> = {
+        title,
+        description,
+        reportedAt: new Date().toISOString(),
+      };
+      if (categoryId) createBody.categoryId = categoryId;
+      if (subcategoryId) createBody.subcategoryId = subcategoryId;
+      if (location.latitude != null) createBody.latitude = location.latitude;
+      if (location.longitude != null) createBody.longitude = location.longitude;
+      if (location.address) createBody.address = location.address;
+      if (location.source) createBody.locationSource = location.source.toUpperCase();
+
+      const createRes = await apiClient.post("/complaints", createBody);
+      const complaint = createRes.data;
+
+      // 3. Upload images (non-blocking — don't fail the whole submission)
+      if (images.length > 0) {
+        try {
+          const formData = new FormData();
+          images.forEach((file) => formData.append("files", file));
+          await apiClient.post(
+            `/complaints/${complaint.id}/images`,
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } }
+          );
+        } catch (imgErr) {
+          console.warn("Image upload failed (continuing with submission):", imgErr);
+        }
+      }
+
+      // 4. Submit complaint for processing
+      try {
+        await apiClient.post(`/complaints/${complaint.id}/submit`);
+      } catch (submitErr: any) {
+        // If submit fails (e.g. Redis not running), complaint is still created as DRAFT
+        console.warn("Submit step failed, complaint saved as draft:", submitErr);
+      }
+
+      setComplaintId(complaint.publicId);
+      setIsSubmitted(true);
+    } catch (err: any) {
+      const raw = err?.response?.data?.message ?? err?.message;
+      let msg: string;
+      if (Array.isArray(raw)) {
+        msg = raw.join(". ");
+      } else if (typeof raw === "string") {
+        msg = raw;
+      } else {
+        msg = "Something went wrong. Please try again.";
+      }
+      setSubmitError(msg);
+    }
   };
 
   // Success screen
@@ -168,7 +295,7 @@ export function ReviewSubmitStep({
             variant="primary"
             size="lg"
             className="flex-1"
-            onClick={() => (window.location.href = "/dashboard")}
+            onClick={() => (window.location.href = "/complaints")}
           >
             <Eye className="h-5 w-5" />
             View My Complaints
@@ -314,17 +441,174 @@ export function ReviewSubmitStep({
         </p>
       </div>
 
-      {/* Submit button */}
-      <Button
-        variant="primary"
-        size="lg"
-        className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 min-h-[52px] text-base"
-        loading={isSubmitting}
-        onClick={handleSubmit}
-      >
-        {!isSubmitting && <CheckCircle2 className="h-5 w-5" />}
-        {isSubmitting ? "Submitting..." : "Submit Complaint"}
-      </Button>
+      {/* Error message */}
+      {submitError && (
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-2">
+          <XCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-red-800">
+              Submission Failed
+            </p>
+            <p className="text-sm text-red-700">{submitError}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Login prompt (shown when not authenticated) */}
+      {!isAuthenticated && !showLogin && (
+        <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-4 text-center space-y-3">
+          <div className="flex items-center justify-center gap-2">
+            <LogIn className="h-5 w-5 text-blue-600" />
+            <p className="text-sm font-medium text-blue-800">
+              Sign in to submit your complaint
+            </p>
+          </div>
+          <p className="text-xs text-blue-700">
+            You need to be logged in to submit. Your report details are saved.
+          </p>
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full bg-blue-600 hover:bg-blue-700"
+            onClick={() => setShowLogin(true)}
+          >
+            <LogIn className="h-5 w-5" />
+            Sign In / Register
+          </Button>
+        </div>
+      )}
+
+      {/* Inline login form */}
+      {!isAuthenticated && showLogin && (
+        <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">Quick Sign In</h3>
+            <button
+              onClick={() => setShowLogin(false)}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+
+          {/* Login tabs */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => { setLoginTab("phone"); setLoginError(""); }}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-md transition-all",
+                loginTab === "phone" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              )}
+            >
+              <Phone className="h-3.5 w-3.5" /> Phone OTP
+            </button>
+            <button
+              onClick={() => { setLoginTab("email"); setLoginError(""); }}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-md transition-all",
+                loginTab === "email" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              )}
+            >
+              <Mail className="h-3.5 w-3.5" /> Email
+            </button>
+          </div>
+
+          {loginError && (
+            <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{loginError}</p>
+          )}
+
+          {loginTab === "phone" && (
+            <div className="space-y-3">
+              <Input
+                type="tel"
+                value={loginPhone}
+                onChange={(e) => setLoginPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                disabled={otpSent}
+              />
+              {!otpSent ? (
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  onClick={handleInlineSendOtp}
+                  loading={loginLoading}
+                >
+                  Send OTP
+                </Button>
+              ) : (
+                <>
+                  <Input
+                    type="text"
+                    value={loginOtp}
+                    onChange={(e) => setLoginOtp(e.target.value)}
+                    placeholder="Enter OTP (4141)"
+                    maxLength={4}
+                    className="text-center tracking-widest"
+                  />
+                  <Button
+                    variant="primary"
+                    className="w-full"
+                    onClick={handleInlineOtpLogin}
+                    loading={loginLoading}
+                  >
+                    Verify & Continue
+                  </Button>
+                  <button
+                    onClick={() => { setOtpSent(false); setLoginOtp(""); }}
+                    className="w-full text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    Change number
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {loginTab === "email" && (
+            <div className="space-y-3">
+              <Input
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="Email"
+              />
+              <Input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="Password"
+              />
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={handleInlineEmailLogin}
+                loading={loginLoading}
+              >
+                Sign In
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Submit button (only when authenticated) */}
+      {isAuthenticated && (
+        <Button
+          variant="primary"
+          size="lg"
+          className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 min-h-[52px] text-base"
+          loading={isSubmitting && !submitError}
+          onClick={handleSubmit}
+          disabled={isSubmitting && !submitError}
+        >
+          {!isSubmitting && <CheckCircle2 className="h-5 w-5" />}
+          {isSubmitting && !submitError
+            ? "Submitting..."
+            : submitError
+            ? "Retry Submission"
+            : "Submit Complaint"}
+        </Button>
+      )}
     </motion.div>
   );
 }

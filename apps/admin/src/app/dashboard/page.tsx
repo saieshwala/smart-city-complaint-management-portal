@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   FileText,
   PlusCircle,
@@ -7,185 +9,177 @@ import {
   CheckCircle2,
   AlertTriangle,
   Flame,
-  TrendingUp,
-  TrendingDown,
   ArrowUpRight,
   MapPin,
+  Loader2,
 } from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
 import { cn } from "@/lib/utils";
+import apiClient from "@/lib/api-client";
 
-// --- Mock data ---
+// --- Types ---
 
-const metricCards = [
-  {
-    title: "Total Complaints",
-    value: "12,847",
-    change: "+12.5%",
-    trend: "up" as const,
-    icon: FileText,
-    iconColor: "text-primary-600",
-    iconBg: "bg-primary-50",
-  },
-  {
-    title: "New Today",
-    value: "142",
-    change: "+8.2%",
-    trend: "up" as const,
-    icon: PlusCircle,
-    iconColor: "text-saffron-600",
-    iconBg: "bg-saffron-50",
-  },
-  {
-    title: "In Progress",
-    value: "3,421",
-    change: "-2.4%",
-    trend: "down" as const,
-    icon: Clock,
-    iconColor: "text-amber-600",
-    iconBg: "bg-amber-50",
-  },
-  {
-    title: "Resolved",
-    value: "8,126",
-    change: "+18.7%",
-    trend: "up" as const,
-    icon: CheckCircle2,
-    iconColor: "text-emerald-600",
-    iconBg: "bg-emerald-50",
-  },
-  {
-    title: "Overdue",
-    value: "487",
-    change: "+5.1%",
-    trend: "up" as const,
-    icon: AlertTriangle,
-    iconColor: "text-red-600",
-    iconBg: "bg-red-50",
-  },
-  {
-    title: "High Priority",
-    value: "234",
-    change: "-3.8%",
-    trend: "down" as const,
-    icon: Flame,
-    iconColor: "text-orange-600",
-    iconBg: "bg-orange-50",
-  },
-];
+interface Stats {
+  total: number;
+  pending: number;
+  inProgress: number;
+  resolved: number;
+  closed: number;
+  byStatus: Record<string, number>;
+}
 
-const categoryData = [
-  { name: "Roads", complaints: 2845, resolved: 2100 },
-  { name: "Water", complaints: 2340, resolved: 1890 },
-  { name: "Electricity", complaints: 1980, resolved: 1650 },
-  { name: "Sanitation", complaints: 1750, resolved: 1420 },
-  { name: "Parks", complaints: 1200, resolved: 980 },
-  { name: "Transport", complaints: 1080, resolved: 840 },
-  { name: "Noise", complaints: 870, resolved: 720 },
-  { name: "Other", complaints: 782, resolved: 526 },
-];
+interface RecentComplaint {
+  id: string;
+  publicId: string;
+  title: string;
+  category: string;
+  priority: string;
+  location: string;
+  status: string;
+  createdAt: string;
+}
 
-const timelineData = [
-  { month: "Jan", complaints: 980, resolved: 820 },
-  { month: "Feb", complaints: 1050, resolved: 900 },
-  { month: "Mar", complaints: 1120, resolved: 950 },
-  { month: "Apr", complaints: 1280, resolved: 1100 },
-  { month: "May", complaints: 1150, resolved: 1020 },
-  { month: "Jun", complaints: 1340, resolved: 1180 },
-  { month: "Jul", complaints: 1420, resolved: 1250 },
-  { month: "Aug", complaints: 1380, resolved: 1300 },
-  { month: "Sep", complaints: 1260, resolved: 1150 },
-  { month: "Oct", complaints: 1490, resolved: 1280 },
-  { month: "Nov", complaints: 1350, resolved: 1200 },
-  { month: "Dec", complaints: 1024, resolved: 976 },
-];
-
-const resolutionTimeData = [
-  { month: "Jan", avgDays: 8.2 },
-  { month: "Feb", avgDays: 7.8 },
-  { month: "Mar", avgDays: 7.5 },
-  { month: "Apr", avgDays: 6.9 },
-  { month: "May", avgDays: 7.2 },
-  { month: "Jun", avgDays: 6.5 },
-  { month: "Jul", avgDays: 6.1 },
-  { month: "Aug", avgDays: 5.8 },
-  { month: "Sep", avgDays: 5.5 },
-  { month: "Oct", avgDays: 5.2 },
-  { month: "Nov", avgDays: 4.9 },
-  { month: "Dec", avgDays: 4.6 },
-];
-
-const recentComplaints = [
-  {
-    id: "CMP-2024-12847",
-    category: "Roads & Infrastructure",
-    priority: "High",
-    location: "MG Road, Bengaluru",
-    status: "In Progress",
-    date: "2024-12-15",
-  },
-  {
-    id: "CMP-2024-12846",
-    category: "Water Supply",
-    priority: "Critical",
-    location: "Sector 15, Noida",
-    status: "New",
-    date: "2024-12-15",
-  },
-  {
-    id: "CMP-2024-12845",
-    category: "Electricity",
-    priority: "Medium",
-    location: "Andheri West, Mumbai",
-    status: "Assigned",
-    date: "2024-12-14",
-  },
-  {
-    id: "CMP-2024-12844",
-    category: "Sanitation",
-    priority: "High",
-    location: "Connaught Place, Delhi",
-    status: "In Progress",
-    date: "2024-12-14",
-  },
-  {
-    id: "CMP-2024-12843",
-    category: "Public Transport",
-    priority: "Low",
-    location: "T Nagar, Chennai",
-    status: "Resolved",
-    date: "2024-12-13",
-  },
-];
+// --- Helpers ---
 
 const priorityColors: Record<string, string> = {
-  Critical: "bg-red-100 text-red-700",
-  High: "bg-orange-100 text-orange-700",
-  Medium: "bg-yellow-100 text-yellow-700",
-  Low: "bg-green-100 text-green-700",
+  CRITICAL: "bg-red-100 text-red-700",
+  HIGH: "bg-orange-100 text-orange-700",
+  MEDIUM: "bg-yellow-100 text-yellow-700",
+  LOW: "bg-green-100 text-green-700",
 };
 
 const statusColors: Record<string, string> = {
-  New: "bg-blue-100 text-blue-700",
-  Assigned: "bg-indigo-100 text-indigo-700",
-  "In Progress": "bg-amber-100 text-amber-700",
-  Resolved: "bg-emerald-100 text-emerald-700",
+  DRAFT: "bg-slate-100 text-slate-700",
+  SUBMITTED: "bg-blue-100 text-blue-700",
+  RECEIVED: "bg-blue-100 text-blue-700",
+  ASSIGNED: "bg-indigo-100 text-indigo-700",
+  IN_PROGRESS: "bg-amber-100 text-amber-700",
+  RESOLVED: "bg-emerald-100 text-emerald-700",
+  CLOSED: "bg-slate-100 text-slate-600",
+  REJECTED: "bg-red-100 text-red-700",
 };
 
+function formatStatus(status: string): string {
+  return status
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function DashboardPage() {
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [recentComplaints, setRecentComplaints] = useState<RecentComplaint[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [statsRes, complaintsRes] = await Promise.all([
+          apiClient.get("/admin/stats"),
+          apiClient.get("/admin/complaints", { params: { limit: 5 } }),
+        ]);
+
+        // Parse stats
+        const statsData = statsRes.data?.data || statsRes.data || {};
+        setStats({
+          total: statsData.total || 0,
+          pending: statsData.pending || 0,
+          inProgress: statsData.inProgress || 0,
+          resolved: statsData.resolved || 0,
+          closed: statsData.closed || 0,
+          byStatus: statsData.byStatus || {},
+        });
+
+        // Parse recent complaints
+        const complaintsData = complaintsRes.data;
+        const items = Array.isArray(complaintsData)
+          ? complaintsData
+          : complaintsData?.items || complaintsData?.data || [];
+        setRecentComplaints(
+          items.map((c: any) => ({
+            id: c.id,
+            publicId: c.publicId,
+            title: c.title,
+            category: c.category?.name || "Other",
+            priority: c.priority || "MEDIUM",
+            location: c.address
+              ? c.address.split(",").slice(0, 2).join(", ")
+              : "Unknown",
+            status: c.status,
+            createdAt: c.createdAt,
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to fetch dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+      </div>
+    );
+  }
+
+  const metricCards = [
+    {
+      title: "Total Complaints",
+      value: stats?.total ?? 0,
+      icon: FileText,
+      iconColor: "text-primary-600",
+      iconBg: "bg-primary-50",
+    },
+    {
+      title: "Pending",
+      value: stats?.pending ?? 0,
+      icon: PlusCircle,
+      iconColor: "text-saffron-600",
+      iconBg: "bg-orange-50",
+    },
+    {
+      title: "In Progress",
+      value: stats?.inProgress ?? 0,
+      icon: Clock,
+      iconColor: "text-amber-600",
+      iconBg: "bg-amber-50",
+    },
+    {
+      title: "Resolved",
+      value: stats?.resolved ?? 0,
+      icon: CheckCircle2,
+      iconColor: "text-emerald-600",
+      iconBg: "bg-emerald-50",
+    },
+    {
+      title: "Closed",
+      value: stats?.closed ?? 0,
+      icon: AlertTriangle,
+      iconColor: "text-slate-600",
+      iconBg: "bg-slate-50",
+    },
+    {
+      title: "Draft",
+      value: stats?.byStatus?.["DRAFT"] ?? 0,
+      icon: Flame,
+      iconColor: "text-orange-600",
+      iconBg: "bg-orange-50",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Page heading */}
@@ -198,7 +192,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-          Last updated: just now
+          Live data
         </div>
       </div>
 
@@ -218,25 +212,6 @@ export default function DashboardPage() {
               >
                 <card.icon className={cn("w-5 h-5", card.iconColor)} />
               </div>
-              <span
-                className={cn(
-                  "inline-flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full",
-                  card.trend === "up" && card.title !== "Overdue" && card.title !== "High Priority"
-                    ? "text-emerald-700 bg-emerald-50"
-                    : card.trend === "down" && (card.title === "Overdue" || card.title === "High Priority")
-                    ? "text-emerald-700 bg-emerald-50"
-                    : card.trend === "up"
-                    ? "text-red-700 bg-red-50"
-                    : "text-emerald-700 bg-emerald-50"
-                )}
-              >
-                {card.trend === "up" ? (
-                  <TrendingUp className="w-3 h-3" />
-                ) : (
-                  <TrendingDown className="w-3 h-3" />
-                )}
-                {card.change}
-              </span>
             </div>
             <div className="mt-3">
               <p className="text-2xl font-bold text-slate-800">{card.value}</p>
@@ -246,310 +221,128 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {/* Complaints by Category - Bar Chart */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-800">
-              Complaints by Category
-            </h3>
-            <button className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
-              View All <ArrowUpRight className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={categoryData}
-                margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  axisLine={{ stroke: "#e2e8f0" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-                    fontSize: "12px",
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
-                />
-                <Bar
-                  dataKey="complaints"
-                  fill="#3b82f6"
-                  radius={[4, 4, 0, 0]}
-                  name="Total"
-                />
-                <Bar
-                  dataKey="resolved"
-                  fill="#10b981"
-                  radius={[4, 4, 0, 0]}
-                  name="Resolved"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Complaints Over Time - Line Chart */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-800">
-              Complaints Over Time
-            </h3>
-            <button className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
-              View Report <ArrowUpRight className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={timelineData}
-                margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  axisLine={{ stroke: "#e2e8f0" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-                    fontSize: "12px",
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="complaints"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: "#3b82f6" }}
-                  name="Filed"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="resolved"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: "#10b981" }}
-                  name="Resolved"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Resolution Time - Area Chart */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-800">
-              Avg. Resolution Time (Days)
-            </h3>
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-              <TrendingDown className="w-3 h-3" />
-              Improving
-            </span>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={resolutionTimeData}
-                margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
-              >
-                <defs>
-                  <linearGradient
-                    id="colorAvgDays"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="5%"
-                      stopColor="#8b5cf6"
-                      stopOpacity={0.3}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="#8b5cf6"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  axisLine={{ stroke: "#e2e8f0" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  axisLine={false}
-                  tickLine={false}
-                  domain={[0, 10]}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-                    fontSize: "12px",
-                  }}
-                  formatter={(value: number) => [
-                    `${value} days`,
-                    "Avg. Resolution",
-                  ]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="avgDays"
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorAvgDays)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
       {/* Recent Complaints Table */}
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <h3 className="text-sm font-semibold text-slate-800">
             Recent Complaints
           </h3>
-          <button className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+          <Link
+            href="/dashboard/complaints"
+            className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+          >
             View All Complaints <ArrowUpRight className="w-3 h-3" />
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-100">
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
-                  ID
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
-                  Category
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
-                  Priority
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
-                  Location
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
-                  Status
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
-                  Date
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {recentComplaints.map((complaint) => (
-                <tr
-                  key={complaint.id}
-                  className="hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  <td className="px-5 py-3">
-                    <span className="text-sm font-mono font-medium text-primary-600">
-                      {complaint.id}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className="text-sm text-slate-700">
-                      {complaint.category}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span
-                      className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-                        priorityColors[complaint.priority]
-                      )}
-                    >
-                      {complaint.priority}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-1.5 text-sm text-slate-600">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                      {complaint.location}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span
-                      className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-                        statusColors[complaint.status]
-                      )}
-                    >
-                      {complaint.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className="text-sm text-slate-500">
-                      {complaint.date}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          </Link>
         </div>
 
-        {/* Table footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 bg-slate-50 rounded-b-xl">
-          <p className="text-xs text-slate-500">
-            Showing 5 of 12,847 complaints
-          </p>
-          <div className="flex items-center gap-1">
-            <button className="px-3 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors">
-              Previous
-            </button>
-            <button className="px-3 py-1 text-xs font-medium text-white bg-primary-600 border border-primary-600 rounded-md hover:bg-primary-700 transition-colors">
-              1
-            </button>
-            <button className="px-3 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors">
-              2
-            </button>
-            <button className="px-3 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors">
-              3
-            </button>
-            <button className="px-3 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors">
-              Next
-            </button>
+        {recentComplaints.length === 0 ? (
+          <div className="px-5 py-12 text-center">
+            <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+            <p className="text-sm text-slate-500">No complaints yet</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Complaints submitted from the citizen portal will appear here.
+            </p>
           </div>
-        </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
+                    ID
+                  </th>
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
+                    Category
+                  </th>
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
+                    Priority
+                  </th>
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
+                    Location
+                  </th>
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
+                    Status
+                  </th>
+                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">
+                    Date
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {recentComplaints.map((complaint) => (
+                  <tr
+                    key={complaint.id}
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() =>
+                      (window.location.href = `/dashboard/complaints/${complaint.id}`)
+                    }
+                  >
+                    <td className="px-5 py-3">
+                      <span className="text-sm font-mono font-medium text-primary-600">
+                        {complaint.publicId}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="text-sm text-slate-700">
+                        {complaint.category}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span
+                        className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                          priorityColors[complaint.priority] ||
+                            "bg-slate-100 text-slate-700"
+                        )}
+                      >
+                        {complaint.priority}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                        <span className="truncate max-w-[180px]">
+                          {complaint.location}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span
+                        className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                          statusColors[complaint.status] ||
+                            "bg-slate-100 text-slate-700"
+                        )}
+                      >
+                        {formatStatus(complaint.status)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="text-sm text-slate-500">
+                        {formatDate(complaint.createdAt)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Table footer */}
+        {recentComplaints.length > 0 && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 bg-slate-50 rounded-b-xl">
+            <p className="text-xs text-slate-500">
+              Showing {recentComplaints.length} of {stats?.total ?? 0} complaints
+            </p>
+            <Link
+              href="/dashboard/complaints"
+              className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+            >
+              View all →
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

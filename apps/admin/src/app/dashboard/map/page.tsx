@@ -15,8 +15,8 @@ import {
   Layers,
   FileText,
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
-import apiClient from "@/lib/api-client";
 
 // --- Types ---
 
@@ -515,9 +515,12 @@ export default function MapViewPage() {
             </div>
 
             <div className="mt-6 flex gap-3">
-              <button className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors">
+              <Link
+                href={`/dashboard/complaints/${selectedComplaint.id}`}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors text-center"
+              >
                 View Details
-              </button>
+              </Link>
               <button
                 onClick={() => setSelectedComplaint(null)}
                 className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"

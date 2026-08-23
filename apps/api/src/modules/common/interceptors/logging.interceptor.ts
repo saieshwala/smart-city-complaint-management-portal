@@ -32,7 +32,7 @@ export class LoggingInterceptor implements NestInterceptor {
     const startTime = Date.now();
 
     // Attach request ID to the request for downstream use
-    (request as Record<string, unknown>)['requestId'] = requestId;
+    (request as any)['requestId'] = requestId;
 
     // Log incoming request (sanitized)
     const sanitizedBody = this.sanitize(body);

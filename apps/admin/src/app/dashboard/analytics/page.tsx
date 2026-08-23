@@ -13,6 +13,7 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import apiClient from "@/lib/api-client";
 
@@ -137,17 +138,85 @@ export default function AnalyticsPage() {
       const [overviewRes, categoriesRes, statusRes, trendsRes, areasRes] =
         await Promise.allSettled([
           apiClient.get("/admin/analytics/overview", { params: { range: dateRange } }),
-          apiClient.get("/admin/analytics/categories", { params: { range: dateRange } }),
-          apiClient.get("/admin/analytics/status", { params: { range: dateRange } }),
-          apiClient.get("/admin/analytics/trends", { params: { range: dateRange } }),
+          apiClient.get("/admin/analytics/by-category", { params: { range: dateRange } }),
+          apiClient.get("/admin/analytics/by-status", { params: { range: dateRange } }),
+          apiClient.get("/admin/analytics/trend", { params: { range: dateRange } }),
           apiClient.get("/admin/analytics/top-areas", { params: { range: dateRange } }),
         ]);
 
-      if (overviewRes.status === "fulfilled") setOverview(overviewRes.value.data);
-      if (categoriesRes.status === "fulfilled") setCategories(categoriesRes.value.data);
-      if (statusRes.status === "fulfilled") setStatusDist(statusRes.value.data);
-      if (trendsRes.status === "fulfilled") setTrends(trendsRes.value.data);
-      if (areasRes.status === "fulfilled") setTopAreas(areasRes.value.data);
+      if (overviewRes.status === "fulfilled" && overviewRes.value.data) {
+        const d = overviewRes.value.data;
+        setOverview({
+          totalComplaints: d.total ?? d.totalComplaints ?? 0,
+          resolvedComplaints: d.resolved ?? d.resolvedComplaints ?? 0,
+          pendingComplaints: d.pending ?? d.pendingComplaints ?? 0,
+          avgResolutionTime: d.avgResolutionHours != null
+            ? `${(d.avgResolutionHours / 24).toFixed(1)} days`
+            : d.avgResolutionTime ?? "N/A",
+          totalChange: d.totalChange ?? "+0%",
+          resolvedChange: d.resolvedChange ?? "+0%",
+          pendingChange: d.pendingChange ?? "+0%",
+          avgTimeChange: d.avgTimeChange ?? "+0%",
+        });
+      }
+
+      if (categoriesRes.status === "fulfilled" && Array.isArray(categoriesRes.value.data)) {
+        const colors = ["bg-blue-500", "bg-cyan-500", "bg-amber-500", "bg-emerald-500", "bg-green-500", "bg-violet-500", "bg-orange-500", "bg-slate-400"];
+        const items = categoriesRes.value.data;
+        const total = items.reduce((a: number, c: any) => a + (c.count || 0), 0);
+        setCategories(
+          items.map((c: any, i: number) => ({
+            category: c.categoryName || c.category || "Unknown",
+            count: c.count || 0,
+            percentage: total > 0 ? Math.round((c.count / total) * 1000) / 10 : 0,
+            color: colors[i % colors.length],
+          }))
+        );
+      }
+
+      if (statusRes.status === "fulfilled" && Array.isArray(statusRes.value.data)) {
+        const items = statusRes.value.data;
+        const total = items.reduce((a: number, c: any) => a + (c.count || 0), 0);
+        const statusLabels: Record<string, string> = {
+          SUBMITTED: "New",
+          RECEIVED: "New",
+          UNDER_REVIEW: "In Progress",
+          ASSIGNED: "Assigned",
+          IN_PROGRESS: "In Progress",
+          RESOLVED: "Resolved",
+          CLOSED: "Closed",
+          REJECTED: "Closed",
+        };
+        setStatusDist(
+          items.map((s: any) => ({
+            status: statusLabels[s.status] || s.status,
+            count: s.count || 0,
+            percentage: total > 0 ? Math.round((s.count / total) * 1000) / 10 : 0,
+          }))
+        );
+      }
+
+      if (trendsRes.status === "fulfilled" && Array.isArray(trendsRes.value.data)) {
+        setTrends(
+          trendsRes.value.data.map((t: any) => ({
+            month: t.date || t.month || "",
+            complaints: t.count || t.complaints || 0,
+            resolved: t.resolved || 0,
+          }))
+        );
+      }
+
+      if (areasRes.status === "fulfilled" && Array.isArray(areasRes.value.data)) {
+        setTopAreas(
+          areasRes.value.data.map((a: any) => ({
+            area: [a.city, a.district, a.state].filter(Boolean).join(", ") || a.area || "Unknown",
+            totalComplaints: a.count || a.totalComplaints || 0,
+            resolved: a.resolved || 0,
+            pending: a.pending || (a.count || 0) - (a.resolved || 0),
+            resolutionRate: a.resolutionRate || (a.count > 0 ? `${Math.round((a.resolved || 0) / a.count * 100)}%` : "0%"),
+          }))
+        );
+      }
     } catch {
       // Keep mock data on failure
     } finally {
@@ -398,9 +467,9 @@ export default function AnalyticsPage() {
           <h3 className="text-sm font-semibold text-slate-800">
             Top Areas by Complaints
           </h3>
-          <button className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+          <Link href="/dashboard/map" className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
             View All <ArrowUpRight className="w-3 h-3" />
-          </button>
+          </Link>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">

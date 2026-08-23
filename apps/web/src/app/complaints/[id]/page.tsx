@@ -91,7 +91,7 @@ export default function ComplaintDetailPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col pt-16">
       <Navbar />
       <main className="flex-1 bg-gray-50">
         <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
@@ -194,15 +194,38 @@ export default function ComplaintDetailPage() {
               {/* Images */}
               {complaint.images && complaint.images.length > 0 && (
                 <div className="rounded-xl border border-gray-200 bg-white p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Images</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                    Photos ({complaint.images.length})
+                  </h2>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {complaint.images.map((img: any) => (
-                      <div
+                    {complaint.images.map((img: any, i: number) => (
+                      <a
                         key={img.id}
-                        className="aspect-square rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-500"
+                        href={`/api/complaints/${complaint.id}/images/${img.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative aspect-square rounded-lg bg-gray-100 border border-gray-200 overflow-hidden hover:border-blue-400 transition-colors"
                       >
-                        Image: {img.originalFilename || img.storageKey}
-                      </div>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`/api/complaints/${complaint.id}/images/${img.id}`}
+                          alt={`Complaint photo ${i + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = "none";
+                            target.parentElement!.querySelector(".fallback")?.classList.remove("hidden");
+                          }}
+                        />
+                        <div className="fallback hidden absolute inset-0 flex items-center justify-center text-xs text-gray-500">
+                          Image {i + 1}
+                        </div>
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                          <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-medium bg-black/50 px-2 py-1 rounded">
+                            Click to view
+                          </span>
+                        </div>
+                      </a>
                     ))}
                   </div>
                 </div>

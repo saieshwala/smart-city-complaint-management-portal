@@ -1,20 +1,39 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Lock, Mail, ShieldCheck } from "lucide-react";
+import apiClient, { setAdminToken } from "@/lib/api-client";
 
 export default function AdminLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // TODO: Integrate with API auth endpoint
-    setTimeout(() => {
+    setError("");
+
+    try {
+      const response = await apiClient.post("/admin/auth/login", {
+        email,
+        password,
+      });
+
+      const { accessToken, admin } = response.data;
+      setAdminToken(accessToken);
+      localStorage.setItem("civicconnect_admin_user", JSON.stringify(admin));
+      router.push("/dashboard");
+    } catch (err: any) {
+      const message =
+        err.response?.data?.message || "Login failed. Please try again.";
+      setError(message);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -41,6 +60,11 @@ export default function AdminLoginPage() {
         {/* Login form card */}
         <div className="bg-white rounded-xl shadow-2xl p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
             <div>
               <label
                 htmlFor="email"

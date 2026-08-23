@@ -11,7 +11,7 @@ import {
   Max,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { LocationSource } from '@prisma/client';
+import { LocationSource, Severity } from '@prisma/client';
 
 export class CreateComplaintDto {
   @ApiProperty({
@@ -88,6 +88,14 @@ export class CreateComplaintDto {
   @IsOptional()
   @IsEnum(LocationSource)
   locationSource?: LocationSource;
+
+  @ApiPropertyOptional({
+    description: 'Severity level of the complaint',
+    enum: Severity,
+  })
+  @IsOptional()
+  @IsEnum(Severity)
+  severity?: Severity;
 
   @ApiProperty({
     description: 'Date when the issue was reported/observed',
